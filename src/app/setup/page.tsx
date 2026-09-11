@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, FormEvent, ChangeEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { db } from '../../firebase'; // Ajuste o caminho se necessário
 import { ref as dbRef, set } from 'firebase/database';
 import styles from './setup.module.css';
@@ -31,6 +32,7 @@ const converterParaBase64 = (file: File): Promise<string> => {
 };
 
 export default function SetupTorneio() {
+  const router = useRouter();
   const [campeonatoNome, setCampeonatoNome] = useState<string>('');
   
   const [times, setTimes] = useState<TimeData[]>(
@@ -88,14 +90,14 @@ export default function SetupTorneio() {
         times: timesProcessados
       });
 
-      alert('Times cadastrados com sucesso!');
+      // Redireciona automaticamente para a tela da tabela
+      router.push('/tabela');
       
     } catch (error) {
       console.error("Erro ao salvar dados:", error);
       alert("Houve um erro ao processar os times. Verifique o console.");
-    } finally {
       setLoading(false);
-    }
+    } 
   };
 
   return (

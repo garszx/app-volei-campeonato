@@ -1,0 +1,91 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.title {
+  color: var(--foreground);
+  margin-bottom: 10px;
+}
+
+.btnGerar {
+  padding: 15px 30px;
+  background-color: #10b981; /* Verde */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btnGerar:hover {
+  opacity: 0.9;
+}
+
+.listaJogos {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.cardJogo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 15px 20px;
+  border-radius: 8px;
+}
+
+.horario {
+  font-weight: bold;
+  font-size: 18px;
+  color: var(--btn-bg);
+  min-width: 60px;
+}
+
+.confronto {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+  justify-content: center;
+}
+
+.time {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.escudo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.vs {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: #f3f4f6;
+  color: #374151;
+  text-transform: uppercase;
+  font-weight: bold;
+}
