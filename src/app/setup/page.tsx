@@ -20,7 +20,7 @@ export default function Setup() {
     intervaloMinutos: 45,
     formatoGrupos: 'set_unico',
     formatoFinais: 'melhor_de_3',
-    sistemaClassificacao: 'vitorias_simples', // NOVA OPÇÃO: 'vitorias_simples' ou 'sistema_pontos'
+    sistemaClassificacao: 'vitorias_simples',
     ptsVitoriaPerfeita: 3,
     ptsVitoriaTiebreak: 2,
     ptsDerrotaTiebreak: 1
@@ -31,8 +31,6 @@ export default function Setup() {
     { id: 'time_2', nome: '', escudoUrl: '' },
     { id: 'time_3', nome: '', escudoUrl: '' },
     { id: 'time_4', nome: '', escudoUrl: '' },
-    { id: 'time_5', nome: '', escudoUrl: '' },
-    { id: 'time_6', nome: '', escudoUrl: '' },
   ]);
 
   const handleRegraChange = (campo: string, valor: string | number) => {
@@ -56,20 +54,45 @@ export default function Setup() {
     }
   };
 
+  const adicionarTime = () => {
+    if (times.length >= 12) {
+      alert("O limite máximo recomendado é de 12 equipes.");
+      return;
+    }
+    const novoId = `time_${times.length + 1}`;
+    setTimes([...times, { id: novoId, nome: '', escudoUrl: '' }]);
+  };
+
+  const removerTime = (index: number) => {
+    if (times.length <= 3) {
+      alert("O torneio precisa de pelo menos 3 equipes.");
+      return;
+    }
+    const novosTimes = times.filter((_, i) => i !== index);
+    setTimes(novosTimes);
+  };
+
   const salvarSetup = async () => {
+    if (times.length < 3) {
+      alert('Cadastre pelo menos 3 equipes para iniciar o torneio.');
+      return;
+    }
+
     if (times.some(t => !t.nome || !t.escudoUrl)) {
-      alert('Preencha todos os nomes e imagens dos 6 times!');
+      alert('Preencha o nome e o brasão de todas as equipes cadastradas!');
       return;
     }
 
     const timesObj: Record<string, TimeConfig & { sets_vencidos: number; total_pontos: number; pontos_classificacao: number }> = {};
     
-    times.forEach(t => {
-      timesObj[t.id] = {
+    times.forEach((t, i) => {
+      const idFormatado = `time_${i + 1}`;
+      timesObj[idFormatado] = {
         ...t,
+        id: idFormatado,
         sets_vencidos: 0,
         total_pontos: 0,
-        pontos_classificacao: 0 // Novo campo para o Ranking
+        pontos_classificacao: 0
       };
     });
 
@@ -155,10 +178,28 @@ export default function Setup() {
         </div>
       </div>
 
-      <h2 className={styles.title}>Cadastro de Times</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 className={styles.title} style={{ margin: 0 }}>Cadastro de Equipes ({times.length})</h2>
+        <button 
+          onClick={adicionarTime} 
+          style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          + Adicionar Equipe
+        </button>
+      </div>
+
       <div className={styles.grid}>
         {times.map((time, index) => (
-          <div key={time.id} className={styles.card}>
+          <div key={index} className={styles.card} style={{ position: 'relative' }}>
+            {times.length > 3 && (
+              <button 
+                onClick={() => removerTime(index)}
+                style={{ position: 'absolute', top: '10px', right: '10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer', fontWeight: 'bold' }}
+                title="Remover time"
+              >
+                ✕
+              </button>
+            )}
             <h3>Time {index + 1}</h3>
             <div className={styles.configItem}>
               <label>Nome:</label>
@@ -182,7 +223,7 @@ export default function Setup() {
         ))}
       </div>
 
-      <button onClick={salvarSetup} className={styles.btnPrimary}>
+      <button onClick={salvarSetup} className={styles.btnPrimary} style={{ marginTop: '20px' }}>
         Salvar Configurações e Avançar
       </button>
     </div>

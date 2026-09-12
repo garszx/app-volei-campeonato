@@ -107,7 +107,6 @@ export default function PainelAdmin() {
   };
 
   const encerrarAcao = async (jogo: Partida) => {
-    // Verifica formato dinamicamente baseado nas Regras escolhidas
     const isMelhorDe3 = (jogo.fase === 'grupos' && regras?.formatoGrupos === 'melhor_de_3') || 
                         ((jogo.fase === 'semifinal' || jogo.fase === 'final' || jogo.fase === 'terceiro_lugar') && regras?.formatoFinais === 'melhor_de_3');
     
@@ -130,12 +129,10 @@ export default function PainelAdmin() {
       const novosSetsB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0);
 
       if (novosSetsA === 2 || novosSetsB === 2) {
-        // Alguém atingiu 2 sets, Partida Encerrada!
         updates[`torneio/partidas/${jogo.id}/status`] = 'finalizado';
         updates[`torneio/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
         updates[`torneio/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
 
-        // Calcula Pontuação de Classificação (Se for fase de grupos)
         if (timeA_db && timeB_db && jogo.fase === 'grupos') {
           let ptsA = 0;
           let ptsB = 0;
@@ -156,14 +153,12 @@ export default function PainelAdmin() {
           updates[`torneio/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + novosSetsB;
         }
       } else {
-        // Próximo Set
         updates[`torneio/partidas/${jogo.id}/pontosA`] = 0;
         updates[`torneio/partidas/${jogo.id}/pontosB`] = 0;
         updates[`torneio/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
         updates[`torneio/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
       }
     } else {
-      // Formato Set Único
       updates[`torneio/partidas/${jogo.id}/status`] = 'finalizado';
       
       if (timeA_db && timeB_db && jogo.fase === 'grupos') {
@@ -185,7 +180,6 @@ export default function PainelAdmin() {
       }
     }
 
-    // Soma os pontos corridos totais da partida de qualquer forma para desempate
     if (timeA_db && timeB_db && jogo.fase === 'grupos') {
         updates[`torneio/times/${jogo.timeA.id}/total_pontos`] = (timeA_db.total_pontos || 0) + jogo.pontosA;
         updates[`torneio/times/${jogo.timeB.id}/total_pontos`] = (timeB_db.total_pontos || 0) + jogo.pontosB;
@@ -195,20 +189,22 @@ export default function PainelAdmin() {
   };
 
   const gerarSemifinais = async () => {
-    if (!confirm("Confirmar o encerramento da fase de grupos e gerar as Semifinais?")) return;
     const timesArray = Object.values(timesMap);
     
-    // Novo critério de ordenação com base nas Regras dinâmicas
+    if (timesArray.length < 4) {
+      alert("Para gerar semifinais, é necessário ter pelo menos 4 equipes cadastradas. Torneios com 3 equipes vão direto para a Final!");
+      return;
+    }
+
+    if (!confirm("Confirmar o encerramento da fase de grupos e gerar as Semifinais?")) return;
+    
     timesArray.sort((a, b) => {
-      // 1. Prioriza Pontos de Classificação (do Sistema Escolhido)
       if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) {
         return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
       }
-      // 2. Desempate por Sets Vencidos
       if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) {
         return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
       }
-      // 3. Desempate por Pontos Totais
       return (b.total_pontos || 0) - (a.total_pontos || 0);
     });
 
@@ -238,7 +234,6 @@ export default function PainelAdmin() {
     const semi2 = partidas.find(p => p.id === 'jogo_17');
     if (!semi1 || !semi2) return;
 
-    // Acha os vencedores se foi melhor de 3 ou set único
     const isSemi1MelhorDe3 = (semi1.setsVencidosA || 0) === 2 || (semi1.setsVencidosB || 0) === 2;
     const semi1VenceuA = isSemi1MelhorDe3 ? (semi1.setsVencidosA === 2) : (semi1.pontosA > semi1.pontosB);
     

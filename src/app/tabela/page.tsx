@@ -18,7 +18,7 @@ interface TimeDb {
   escudoUrl: string;
   sets_vencidos: number;
   total_pontos: number;
-  pontos_classificacao: number; // Novo campo de pontuação
+  pontos_classificacao: number;
 }
 
 interface Partida {
@@ -65,8 +65,6 @@ export default function HubTorneio() {
           setTimesBase(Object.values(data.times));
           
           const timesArray = Object.values(data.times) as TimeDb[];
-          
-          // Ordenação idêntica à do Admin (Lendo a nova regra)
           timesArray.sort((a, b) => {
             if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) {
               return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
@@ -94,14 +92,14 @@ export default function HubTorneio() {
     return () => unsubscribe();
   }, []);
 
-  const gerarTabela = async () => {
-    if (timesBase.length !== 6) {
-      alert("Aguarde o carregamento dos 6 times.");
+  const gerarTabelaDinamica = async () => {
+    if (timesBase.length < 3) {
+      alert("É preciso ter pelo menos 3 equipes cadastradas.");
       return;
     }
 
     if (!regras) {
-      alert("Regras do torneio não encontradas. Por favor, configure o torneio novamente no Setup.");
+      alert("Regras do torneio não encontradas. Configure o torneio no Setup.");
       return;
     }
 
@@ -111,20 +109,39 @@ export default function HubTorneio() {
       [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]];
     }
 
-    const grade = [
-      [0, 5], [1, 4], [2, 3],
-      [0, 4], [5, 3], [1, 2],
-      [0, 3], [4, 2], [5, 1],
-      [0, 2], [3, 1], [4, 5],
-      [0, 1], [2, 5], [3, 4] 
-    ];
+    const listaTrabalho = [...timesSorteados];
+    const temImpar = listaTrabalho.length % 2 !== 0;
+    if (temImpar) {
+      listaTrabalho.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
+    }
+
+    const totalTimes = listaTrabalho.length;
+    const totalRodadas = totalTimes - 1;
+    const jogosPorRodada = totalTimes / 2;
+    
+    const confrontosGerados: [number, number][] = [];
+    const copiaRotacao = [...listaTrabalho];
+
+    for (let rodada = 0; rodada < totalRodadas; rodada++) {
+      for (let i = 0; i < jogosPorRodada; i++) {
+        const time1 = copiaRotacao[i];
+        const time2 = copiaRotacao[totalTimes - 1 - i];
+
+        if (time1.id !== 'folga_ficticia' && time2.id !== 'folga_ficticia') {
+          const idxA = timesSorteados.findIndex(t => t.id === time1.id);
+          const idxB = timesSorteados.findIndex(t => t.id === time2.id);
+          confrontosGerados.push([idxA, idxB]);
+        }
+      }
+      const ultimo = copiaRotacao.pop()!;
+      copiaRotacao.splice(1, 0, ultimo);
+    }
 
     const novasPartidas: Record<string, Partida> = {};
-
     const [horaStr, minStr] = regras.horarioInicio.split(':');
     const minutosIniciais = parseInt(horaStr) * 60 + parseInt(minStr);
 
-    grade.forEach((confronto, index) => {
+    confrontosGerados.forEach((confronto, index) => {
       const minutosTotais = minutosIniciais + (index * regras.intervaloMinutos);
       const horas = Math.floor(minutosTotais / 60) % 24;
       const minutos = minutosTotais % 60;
@@ -171,8 +188,8 @@ export default function HubTorneio() {
         </div>
 
         {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
-          <button className={styles.btnGerar} onClick={gerarTabela}>
-            Embaralhar Times e Gerar Tabela
+          <button className={styles.btnGerar} onClick={gerarTabelaDinamica}>
+            Embaralhar Times e Gerar Tabela Dinâmica ({timesBase.length} equipes)
           </button>
         )}
       </div>
