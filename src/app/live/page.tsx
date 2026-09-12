@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { db } from '../../firebase';
 import { ref, onValue } from 'firebase/database';
-import styles from './ao-vivo.module.css';
+// Importação ajustada para o novo nome do arquivo CSS
+import styles from './live.module.css';
 
 interface Time {
   id: string;
@@ -22,7 +23,8 @@ interface Partida {
   timeB: Time;
 }
 
-export default function TelaoAoVivo() {
+// Componente renomeado
+export default function TelaoLive() {
   const [partidas, setPartidas] = useState<Partida[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,9 +47,7 @@ export default function TelaoAoVivo() {
     return <div className={styles.container}><h2>Carregando telão...</h2></div>;
   }
 
-  // Busca o jogo que o admin iniciou
   const jogoAtual = partidas.find(p => p.status === 'em_andamento');
-  // Se não houver jogo rolando, busca o próximo da fila
   const proximoJogo = partidas.find(p => p.status === 'pendente');
 
   return (
@@ -56,7 +56,7 @@ export default function TelaoAoVivo() {
         <>
           <h2 className={styles.title}>Partida em Andamento</h2>
           
-          <div className={styles.placarAoVivo}>
+          <div className={styles.placarLive}>
             <div className={styles.timeCol}>
               <Image src={jogoAtual.timeA.escudoUrl} alt="Escudo A" className={styles.escudo} width={120} height={120} />
               <h3 className={styles.timeNome}>{jogoAtual.timeA.nome}</h3>

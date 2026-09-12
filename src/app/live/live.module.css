@@ -16,7 +16,7 @@
   letter-spacing: 2px;
 }
 
-.placarAoVivo {
+.placarLive {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -91,7 +91,7 @@
 }
 
 @media (max-width: 768px) {
-  .placarAoVivo {
+  .placarLive {
     flex-direction: column;
     gap: 20px;
     padding: 20px;
