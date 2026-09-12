@@ -1,0 +1,109 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 20px;
+  text-align: center;
+}
+
+.title {
+  font-size: 24px;
+  color: var(--btn-bg);
+  margin-bottom: 40px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.placarAoVivo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  width: 100%;
+  max-width: 1000px;
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 16px;
+  padding: 40px 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.timeCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 20px;
+}
+
+.timeNome {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.escudo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.pontuacao {
+  font-size: 120px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.vsCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.vsText {
+  font-size: 24px;
+  color: #6b7280;
+  font-weight: bold;
+}
+
+.horarioBadge {
+  background-color: var(--btn-bg);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.mensagemEspera {
+  font-size: 28px;
+  color: var(--foreground);
+  background: var(--card-bg);
+  padding: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+}
+
+@media (max-width: 768px) {
+  .placarAoVivo {
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+  }
+  .pontuacao {
+    font-size: 80px;
+  }
+  .escudo {
+    width: 80px;
+    height: 80px;
+  }
+  .timeNome {
+    font-size: 24px;
+  }
+}

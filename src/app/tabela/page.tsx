@@ -12,6 +12,14 @@ interface Time {
   escudoUrl: string;
 }
 
+interface TimeDb {
+  id: string;
+  nome: string;
+  escudoUrl: string;
+  sets_vencidos: number;
+  total_pontos: number;
+}
+
 interface Partida {
   id: string;
   fase: string;
@@ -23,8 +31,10 @@ interface Partida {
   timeB: Time;
 }
 
-export default function TabelaTorneio() {
-  const [times, setTimes] = useState<Time[]>([]);
+export default function HubTorneio() {
+  const [abaAtiva, setAbaAtiva] = useState<'jogos' | 'classificacao'>('jogos');
+  const [timesClassificacao, setTimesClassificacao] = useState<TimeDb[]>([]);
+  const [timesBase, setTimesBase] = useState<Time[]>([]);
   const [partidas, setPartidas] = useState<Partida[]>([]);
   const [statusTorneio, setStatusTorneio] = useState<string>('');
 
@@ -34,13 +44,28 @@ export default function TabelaTorneio() {
       const data = snapshot.val();
       if (data) {
         setStatusTorneio(data.config?.status || '');
+        
         if (data.times) {
-          setTimes(Object.values(data.times));
+          // Extrai para base do sorteio
+          setTimesBase(Object.values(data.times));
+          
+          // Extrai para a tabela de classificação (aplicando os critérios)
+          const timesArray = Object.values(data.times) as TimeDb[];
+          timesArray.sort((a, b) => {
+            if (b.sets_vencidos !== a.sets_vencidos) return b.sets_vencidos - a.sets_vencidos;
+            return b.total_pontos - a.total_pontos;
+          });
+          setTimesClassificacao(timesArray);
         }
+
         if (data.partidas) {
-          // Extrai as partidas e aplica a ordenação pelo horário (ex: 07:30 vem antes de 08:00)
           const partidasArray = Object.values(data.partidas) as Partida[];
-          partidasArray.sort((a, b) => a.horario.localeCompare(b.horario));
+          // Ordena pelo número do jogo para evitar falhas alfabéticas (jogo_1, jogo_2...)
+          partidasArray.sort((a, b) => {
+            const numA = parseInt(a.id.split('_')[1]);
+            const numB = parseInt(b.id.split('_')[1]);
+            return numA - numB;
+          });
           setPartidas(partidasArray);
         }
       }
@@ -50,12 +75,12 @@ export default function TabelaTorneio() {
   }, []);
 
   const gerarTabela = async () => {
-    if (times.length !== 6) {
+    if (timesBase.length !== 6) {
       alert("Aguarde o carregamento dos 6 times.");
       return;
     }
 
-    const timesSorteados = [...times];
+    const timesSorteados = [...timesBase];
     for (let i = timesSorteados.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]];
@@ -76,7 +101,6 @@ export default function TabelaTorneio() {
       const horas = Math.floor(minutosTotais / 60);
       const minutos = minutosTotais % 60;
       const horarioFormatado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
-
       const idPartida = `jogo_${index + 1}`;
 
       novasPartidas[idPartida] = {
@@ -86,16 +110,8 @@ export default function TabelaTorneio() {
         status: 'pendente',
         pontosA: 0,
         pontosB: 0,
-        timeA: {
-          id: timesSorteados[confronto[0]].id,
-          nome: timesSorteados[confronto[0]].nome,
-          escudoUrl: timesSorteados[confronto[0]].escudoUrl
-        },
-        timeB: {
-          id: timesSorteados[confronto[1]].id,
-          nome: timesSorteados[confronto[1]].nome,
-          escudoUrl: timesSorteados[confronto[1]].escudoUrl
-        }
+        timeA: { id: timesSorteados[confronto[0]].id, nome: timesSorteados[confronto[0]].nome, escudoUrl: timesSorteados[confronto[0]].escudoUrl },
+        timeB: { id: timesSorteados[confronto[1]].id, nome: timesSorteados[confronto[1]].nome, escudoUrl: timesSorteados[confronto[1]].escudoUrl }
       };
     });
 
@@ -106,37 +122,98 @@ export default function TabelaTorneio() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Tabela de Jogos</h1>
-        {statusTorneio === 'aguardando_sorteio' && (
+        <h1 className={styles.title}>Central do Campeonato</h1>
+        
+        <div className={styles.tabs}>
+          <button 
+            className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`}
+            onClick={() => setAbaAtiva('jogos')}
+          >
+            Tabela de Jogos
+          </button>
+          <button 
+            className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`}
+            onClick={() => setAbaAtiva('classificacao')}
+          >
+            Classificação Geral
+          </button>
+        </div>
+
+        {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
           <button className={styles.btnGerar} onClick={gerarTabela}>
             Embaralhar Times e Gerar Tabela
           </button>
         )}
       </div>
 
-      <div className={styles.listaJogos}>
-        {partidas.map((jogo) => (
-          <div key={jogo.id} className={styles.cardJogo}>
-            <span className={styles.horario}>{jogo.horario}</span>
+      {abaAtiva === 'jogos' ? (
+        <div className={styles.listaJogos}>
+          {partidas.map((jogo) => {
+            const numeroDoJogo = jogo.id.split('_')[1]; // Puxa o "1" de "jogo_1"
             
-            <div className={styles.confronto}>
-              <div className={styles.time}>
-                <span>{jogo.timeA.nome}</span>
-                <Image src={jogo.timeA.escudoUrl} alt="Escudo A" className={styles.escudo} width={40} height={40} />
-              </div>
-              <span className={styles.vs}>X</span>
-              <div className={styles.time}>
-                <Image src={jogo.timeB.escudoUrl} alt="Escudo B" className={styles.escudo} width={40} height={40} />
-                <span>{jogo.timeB.nome}</span>
-              </div>
-            </div>
+            let classeStatus = styles.statusPendente;
+            let textoStatus = 'Aguardando';
+            if (jogo.status === 'em_andamento') { classeStatus = styles.statusAndamento; textoStatus = 'Ao Vivo'; }
+            if (jogo.status === 'finalizado') { classeStatus = styles.statusFinalizado; textoStatus = 'Finalizado'; }
 
-            <span className={styles.status}>
-              {jogo.status === 'pendente' ? 'Aguardando' : jogo.status}
-            </span>
-          </div>
-        ))}
-      </div>
+            return (
+              <div key={jogo.id} className={styles.cardJogo}>
+                <div className={styles.cardTop}>
+                  <span className={styles.jogoNumero}>Jogo {numeroDoJogo} {jogo.fase === 'semifinal' ? '(Semifinal)' : ''}</span>
+                  <span className={styles.horario}>{jogo.horario}</span>
+                </div>
+                
+                <div className={styles.confronto}>
+                  <div className={styles.time}>
+                    <Image src={jogo.timeA.escudoUrl} alt="Escudo A" className={styles.escudo} width={50} height={50} />
+                    <span>{jogo.timeA.nome}</span>
+                  </div>
+                  
+                  <div className={styles.placarCentral}>
+                    <span className={styles.placarNumeros}>
+                      {jogo.status === 'pendente' ? 'X' : `${jogo.pontosA} - ${jogo.pontosB}`}
+                    </span>
+                    <span className={`${styles.statusTag} ${classeStatus}`}>{textoStatus}</span>
+                  </div>
+
+                  <div className={styles.time}>
+                    <Image src={jogo.timeB.escudoUrl} alt="Escudo B" className={styles.escudo} width={50} height={50} />
+                    <span>{jogo.timeB.nome}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={styles.tableContainer}>
+          <table className={styles.tableClassificacao}>
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th style={{ textAlign: 'left' }}>Time</th>
+                <th>Vitórias (Sets)</th>
+                <th>Pontos Totais</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timesClassificacao.map((time, index) => (
+                <tr key={time.id}>
+                  <td className={styles.rank}>{index + 1}º</td>
+                  <td>
+                    <div className={styles.teamCell}>
+                      <Image src={time.escudoUrl} alt={time.nome} width={35} height={35} className={styles.escudo} />
+                      {time.nome}
+                    </div>
+                  </td>
+                  <td className={styles.vitorias}>{time.sets_vencidos}</td>
+                  <td style={{ fontWeight: 'bold' }}>{time.total_pontos}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

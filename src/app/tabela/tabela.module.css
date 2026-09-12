@@ -11,12 +11,38 @@
 
 .title {
   color: var(--foreground);
-  margin-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* Sistema de Abas */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.tabBtn {
+  padding: 12px 24px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tabBtnActive {
+  background-color: var(--btn-bg);
+  color: white;
+  border-color: var(--btn-bg);
 }
 
 .btnGerar {
   padding: 15px 30px;
-  background-color: #10b981; /* Verde */
+  background-color: #10b981;
   color: white;
   border: none;
   border-radius: 5px;
@@ -26,10 +52,7 @@
   transition: opacity 0.2s;
 }
 
-.btnGerar:hover {
-  opacity: 0.9;
-}
-
+/* Lista de Jogos */
 .listaJogos {
   display: flex;
   flex-direction: column;
@@ -38,54 +61,126 @@
 
 .cardJogo {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   background-color: var(--card-bg);
   border: 1px solid var(--card-border);
   padding: 15px 20px;
   border-radius: 8px;
 }
 
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.jogoNumero {
+  font-weight: bold;
+  color: #6b7280;
+}
+
 .horario {
   font-weight: bold;
-  font-size: 18px;
   color: var(--btn-bg);
-  min-width: 60px;
 }
 
 .confronto {
   display: flex;
   align-items: center;
-  gap: 15px;
-  flex: 1;
   justify-content: center;
+  gap: 20px;
 }
 
 .time {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-weight: bold;
   font-size: 16px;
+  width: 100px;
+  text-align: center;
 }
 
 .escudo {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
 }
 
-.vs {
-  color: #6b7280;
-  font-size: 14px;
+.placarCentral {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
 }
 
-.status {
-  font-size: 12px;
+.placarNumeros {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--foreground);
+  letter-spacing: 2px;
+}
+
+.statusTag {
+  font-size: 11px;
   padding: 4px 8px;
   border-radius: 4px;
-  background-color: #f3f4f6;
-  color: #374151;
   text-transform: uppercase;
   font-weight: bold;
+}
+
+.statusPendente { background-color: #f3f4f6; color: #6b7280; }
+.statusAndamento { background-color: #ef4444; color: white; animation: pulse 2s infinite; }
+.statusFinalizado { background-color: #10b981; color: white; }
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Tabela de Classificação */
+.tableContainer {
+  overflow-x: auto;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+}
+
+.tableClassificacao {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.tableClassificacao th, .tableClassificacao td {
+  padding: 15px;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--foreground);
+}
+
+.tableClassificacao th {
+  background-color: rgba(0, 0, 0, 0.03);
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.teamCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  font-weight: bold;
+}
+
+.rank { font-size: 18px; font-weight: bold; color: var(--btn-bg); }
+.vitorias { font-weight: bold; font-size: 18px; color: #10b981; }
+
+.tableClassificacao tr:nth-child(-n+4) td {
+  background-color: rgba(16, 185, 129, 0.05);
 }

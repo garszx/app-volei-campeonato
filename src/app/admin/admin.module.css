@@ -1,0 +1,118 @@
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  text-align: center;
+}
+
+.loginBox {
+  margin-top: 10vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.input {
+  padding: 12px;
+  width: 100%;
+  max-width: 300px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.btnPrimary {
+  padding: 12px 24px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  width: 100%;
+  max-width: 300px;
+  font-size: 16px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.scoreBoard {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 30px 0;
+}
+
+.teamCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.scoreText {
+  font-size: 64px;
+  font-weight: bold;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.controls {
+  display: flex;
+  gap: 15px;
+}
+
+.btnScore {
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
+  border: none;
+  font-size: 30px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.2s;
+}
+
+.btnMinus {
+  background: #ef4444; 
+  color: white;
+}
+
+.btnPlus {
+  background: #10b981; 
+  color: white;
+}
+
+.btnScore:hover, .btnPrimary:hover, .btnEnd:hover {
+  filter: brightness(0.9);
+}
+
+.btnEnd {
+  background: #f59e0b;
+  color: white;
+  padding: 15px;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 30px;
+}
+
+.btnEnd:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
