@@ -27,6 +27,8 @@ interface Partida {
   status: string;
   pontosA: number;
   pontosB: number;
+  setsVencidosA?: number;
+  setsVencidosB?: number;
   timeA: Time;
   timeB: Time;
 }
@@ -46,10 +48,8 @@ export default function HubTorneio() {
         setStatusTorneio(data.config?.status || '');
         
         if (data.times) {
-          // Extrai para base do sorteio
           setTimesBase(Object.values(data.times));
           
-          // Extrai para a tabela de classificação (aplicando os critérios)
           const timesArray = Object.values(data.times) as TimeDb[];
           timesArray.sort((a, b) => {
             if (b.sets_vencidos !== a.sets_vencidos) return b.sets_vencidos - a.sets_vencidos;
@@ -60,7 +60,6 @@ export default function HubTorneio() {
 
         if (data.partidas) {
           const partidasArray = Object.values(data.partidas) as Partida[];
-          // Ordena pelo número do jogo para evitar falhas alfabéticas (jogo_1, jogo_2...)
           partidasArray.sort((a, b) => {
             const numA = parseInt(a.id.split('_')[1]);
             const numB = parseInt(b.id.split('_')[1]);
@@ -149,7 +148,7 @@ export default function HubTorneio() {
       {abaAtiva === 'jogos' ? (
         <div className={styles.listaJogos}>
           {partidas.map((jogo) => {
-            const numeroDoJogo = jogo.id.split('_')[1]; // Puxa o "1" de "jogo_1"
+            const numeroDoJogo = jogo.id.split('_')[1];
             
             let classeStatus = styles.statusPendente;
             let textoStatus = 'Aguardando';
@@ -159,7 +158,12 @@ export default function HubTorneio() {
             return (
               <div key={jogo.id} className={styles.cardJogo}>
                 <div className={styles.cardTop}>
-                  <span className={styles.jogoNumero}>Jogo {numeroDoJogo} {jogo.fase === 'semifinal' ? '(Semifinal)' : ''}</span>
+                  <span className={styles.jogoNumero}>
+                    {jogo.fase === 'final' ? '🏆 GRANDE FINAL' : 
+                     jogo.fase === 'terceiro_lugar' ? '🥉 Disputa de 3º Lugar' : 
+                     jogo.fase === 'semifinal' ? `Jogo ${numeroDoJogo} (Semifinal)` : 
+                     `Jogo ${numeroDoJogo}`}
+                  </span>
                   <span className={styles.horario}>{jogo.horario}</span>
                 </div>
                 
@@ -170,6 +174,12 @@ export default function HubTorneio() {
                   </div>
                   
                   <div className={styles.placarCentral}>
+                    {(jogo.fase === 'final' || jogo.fase === 'terceiro_lugar') && jogo.status !== 'pendente' && (
+                      <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold', marginBottom: '4px' }}>
+                        Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}
+                      </span>
+                    )}
+                    
                     <span className={styles.placarNumeros}>
                       {jogo.status === 'pendente' ? 'X' : `${jogo.pontosA} - ${jogo.pontosB}`}
                     </span>
