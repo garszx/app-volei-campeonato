@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { db } from '../../firebase';
 import { ref, onValue, set, update, remove } from 'firebase/database';
@@ -12,6 +13,7 @@ interface Partida { id: string; fase: string; horario: string; status: string; p
 interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; ptsVitoriaPerfeita: number; ptsVitoriaTiebreak: number; ptsDerrotaTiebreak: number; }
 
 export default function HubTorneio() {
+  const router = useRouter();
   const [abaAtiva, setAbaAtiva] = useState<'jogos' | 'classificacao' | 'live' | 'admin'>('jogos');
   const [timesClassificacao, setTimesClassificacao] = useState<TimeDb[]>([]);
   const [timesBase, setTimesBase] = useState<Time[]>([]);
@@ -71,7 +73,6 @@ export default function HubTorneio() {
   };
 
   const encerrarAcao = async (jogo: Partida) => {
-    // Nova lógica de leitura do formato escolhido
     const formatoPartida = jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
     const isMelhorDe3 = formatoPartida?.includes('melhor_de_3');
     const pontosBase = formatoPartida?.includes('_21') ? 21 : 25;
@@ -139,7 +140,7 @@ export default function HubTorneio() {
     await update(ref(db), updates);
   };
 
-  const gerarSemifinais = async () => { /* Mesma Lógica de antes */
+  const gerarSemifinais = async () => {
     const timesArray = Object.values(timesMap);
     if (timesArray.length < 4) { alert("Mínimo 4 equipes."); return; }
     if (!confirm("Gerar Semifinais?")) return;
@@ -156,7 +157,7 @@ export default function HubTorneio() {
     await update(ref(db), updates);
   };
 
-  const gerarFinais = async () => { /* Mesma Lógica de antes */
+  const gerarFinais = async () => {
     if (!confirm("Gerar Finais?")) return;
     const semi1 = partidas.find(p => p.id === 'jogo_16');
     const semi2 = partidas.find(p => p.id === 'jogo_17');
@@ -177,10 +178,16 @@ export default function HubTorneio() {
   const resetarTorneio = async () => {
     if (!confirm("⚠️ ATENÇÃO: Isso apagará tudo. Deseja continuar?")) return;
     if (!confirm("Tem certeza absoluta?")) return;
-    try { await remove(ref(db, 'torneio')); alert("Torneio zerado! Volte para /setup."); } catch (error) { alert("Erro ao zerar."); }
+    try {
+      await remove(ref(db, 'torneio'));
+      alert("Torneio zerado! Redirecionando para o Setup...");
+      router.push('/setup');
+    } catch {
+      alert("Erro ao zerar o torneio.");
+    }
   };
 
-  const gerarTabelaDinamica = async () => { /* Mesma Lógica de antes */
+  const gerarTabelaDinamica = async () => {
     if (timesBase.length < 3) { alert("Mínimo de 3 equipes."); return; }
     if (!regras) { alert("Configure o torneio no Setup."); return; }
     const timesSorteados = [...timesBase];
@@ -210,7 +217,6 @@ export default function HubTorneio() {
     await set(ref(db, 'torneio/partidas'), novasPartidas);
   };
 
-  // Variáveis Shared (Lendo as novas regras dinâmicas)
   const jogoAtual = partidas.find(p => p.status === 'em_andamento');
   const proximoJogo = partidas.find(p => p.status === 'pendente');
   const formatoPartidaAtual = jogoAtual?.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
@@ -222,7 +228,6 @@ export default function HubTorneio() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        {/* TITULO DINAMICO */}
         <h1 className={styles.title}>{regras?.nomeCampeonato || 'Campeonato Vôlei'}</h1>
         
         <div className={styles.tabs}>
@@ -253,7 +258,6 @@ export default function HubTorneio() {
                 </div>
                 <div className={styles.confronto}>
                   <div className={styles.time}>
-                    {/* MOSTRAR LOGOS DINAMICAMENTE */}
                     {regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={styles.escudo} width={50} height={50} />} 
                     <span>{jogo.timeA.nome}</span>
                   </div>
@@ -274,7 +278,6 @@ export default function HubTorneio() {
       )}
 
       {abaAtiva === 'classificacao' && (
-        // TABLE WRAPPER PARA RESPONSIVIDADE (SCROLL NO CELULAR)
         <div className={styles.tableWrapper}>
           <div className={styles.tableContainer}>
             <table className={styles.tableClassificacao}>
@@ -282,7 +285,6 @@ export default function HubTorneio() {
                 <tr>
                   <th>Pos</th>
                   <th style={{ textAlign: 'left' }}>Time</th>
-                  {/* ESCONDE A COLUNA DE PONTOS SE FOR VITÓRIA SIMPLES */}
                   {regras?.sistemaClassificacao === 'sistema_pontos' && <th>Pts</th>}
                   <th>Vitórias (Sets)</th>
                   <th>Saldo de Pontos</th>

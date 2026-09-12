@@ -21,6 +21,7 @@
   font-weight: 900;
   background: linear-gradient(to right, #38bdf8, #818cf8);
   -webkit-background-clip: text;
+  background-clip: text; /* <-- Adicione esta linha */
   -webkit-text-fill-color: transparent;
   margin-bottom: 25px;
 }
