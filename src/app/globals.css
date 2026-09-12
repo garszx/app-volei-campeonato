@@ -1,38 +1,26 @@
-/* app/globals.css */
-
-* {
-  box-sizing: border-box;
-}
-
 :root {
-  --background: #f3f4f6;
-  --foreground: #1f2937;
-  --card-bg: #ffffff;
-  --card-border: #e5e7eb;
-  --input-bg: #ffffff;
-  --input-border: #d1d5db;
-  --input-text: #1f2937;
-  --btn-bg: #2563eb;
+  --background: #0f172a; /* Azul escuro/grafite moderno */
+  --foreground: #f8fafc; /* Branco suave */
+  --card-bg: #1e293b; /* Cinza azulado para cards */
+  --card-border: #334155; /* Borda sutil */
+  --input-bg: #0f172a;
+  --input-text: #f8fafc;
+  --input-border: #475569;
+  --btn-bg: #2563eb; /* Azul royal vibrante */
   --btn-text: #ffffff;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #111827;
-    --foreground: #f9fafb;
-    --card-bg: #1f2937;
-    --card-border: #374151;
-    --input-bg: #111827;
-    --input-border: #4b5563;
-    --input-text: #f9fafb;
-    --btn-bg: #3b82f6;
-    --btn-text: #ffffff;
-  }
+  --accent-live: #ef4444; /* Vermelho forte para AO VIVO */
+  --accent-success: #10b981; /* Verde esmeralda para finalizados */
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+* {
+  box-sizing: border-box;
 }

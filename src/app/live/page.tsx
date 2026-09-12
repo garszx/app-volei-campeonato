@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { db } from '../../firebase';
 import { ref, onValue } from 'firebase/database';
-// Importação ajustada para o novo nome do arquivo CSS
 import styles from './live.module.css';
 
 interface Time {
@@ -15,27 +14,38 @@ interface Time {
 
 interface Partida {
   id: string;
+  fase: string;
   horario: string;
   status: string;
   pontosA: number;
   pontosB: number;
+  setsVencidosA?: number;
+  setsVencidosB?: number;
   timeA: Time;
   timeB: Time;
 }
 
-// Componente renomeado
+interface Regras {
+  formatoGrupos: string;
+  formatoFinais: string;
+}
+
 export default function TelaoLive() {
   const [partidas, setPartidas] = useState<Partida[]>([]);
+  const [regras, setRegras] = useState<Regras | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const torneioRef = ref(db, 'torneio/partidas');
+    const torneioRef = ref(db, 'torneio');
     const unsubscribe = onValue(torneioRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const partidasArray = Object.values(data) as Partida[];
-        partidasArray.sort((a, b) => a.horario.localeCompare(b.horario));
-        setPartidas(partidasArray);
+        setRegras(data.config?.regras || null);
+        if (data.partidas) {
+          const partidasArray = Object.values(data.partidas) as Partida[];
+          partidasArray.sort((a, b) => a.horario.localeCompare(b.horario));
+          setPartidas(partidasArray);
+        }
       }
       setLoading(false);
     });
@@ -50,26 +60,43 @@ export default function TelaoLive() {
   const jogoAtual = partidas.find(p => p.status === 'em_andamento');
   const proximoJogo = partidas.find(p => p.status === 'pendente');
 
+  const isMelhorDe3 = jogoAtual ? (
+    (jogoAtual.fase === 'grupos' && regras?.formatoGrupos === 'melhor_de_3') || 
+    ((jogoAtual.fase === 'semifinal' || jogoAtual.fase === 'final' || jogoAtual.fase === 'terceiro_lugar') && regras?.formatoFinais === 'melhor_de_3')
+  ) : false;
+
   return (
     <div className={styles.container}>
       {jogoAtual ? (
         <>
-          <h2 className={styles.title}>Partida em Andamento</h2>
+          <div className={styles.headerLive}>
+            <span className={styles.liveBadge}>AO VIVO</span>
+            <span className={styles.horarioBadge}>{jogoAtual.horario}</span>
+          </div>
+
+          {isMelhorDe3 && (
+            <div className={styles.setsInfo}>
+              Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong>
+            </div>
+          )}
           
           <div className={styles.placarLive}>
             <div className={styles.timeCol}>
-              <Image src={jogoAtual.timeA.escudoUrl} alt="Escudo A" className={styles.escudo} width={120} height={120} />
+              <div className={styles.escudoWrapper}>
+                <Image src={jogoAtual.timeA.escudoUrl} alt="Escudo A" className={styles.escudo} width={110} height={110} />
+              </div>
               <h3 className={styles.timeNome}>{jogoAtual.timeA.nome}</h3>
               <span className={styles.pontuacao}>{jogoAtual.pontosA}</span>
             </div>
 
             <div className={styles.vsCard}>
-              <span className={styles.horarioBadge}>{jogoAtual.horario}</span>
               <span className={styles.vsText}>X</span>
             </div>
 
             <div className={styles.timeCol}>
-              <Image src={jogoAtual.timeB.escudoUrl} alt="Escudo B" className={styles.escudo} width={120} height={120} />
+              <div className={styles.escudoWrapper}>
+                <Image src={jogoAtual.timeB.escudoUrl} alt="Escudo B" className={styles.escudo} width={110} height={110} />
+              </div>
               <h3 className={styles.timeNome}>{jogoAtual.timeB.nome}</h3>
               <span className={styles.pontuacao}>{jogoAtual.pontosB}</span>
             </div>
@@ -77,17 +104,24 @@ export default function TelaoLive() {
         </>
       ) : proximoJogo ? (
         <div className={styles.mensagemEspera}>
-          <h2 className={styles.title}>Próxima Partida - {proximoJogo.horario}</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '30px', justifyContent: 'center', marginTop: '20px' }}>
-             <Image src={proximoJogo.timeA.escudoUrl} alt="Escudo A" width={80} height={80} />
+          <h2 style={{ color: '#38bdf8', marginBottom: '20px' }}>Próxima Partida - {proximoJogo.horario}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '40px', justifyContent: 'center', margin: '30px 0' }}>
+             <div style={{ textAlign: 'center' }}>
+               <Image src={proximoJogo.timeA.escudoUrl} alt="Escudo A" width={80} height={80} style={{ objectFit: 'contain' }} />
+               <p style={{ fontWeight: 'bold', marginTop: '10px' }}>{proximoJogo.timeA.nome}</p>
+             </div>
              <span className={styles.vsText}>X</span>
-             <Image src={proximoJogo.timeB.escudoUrl} alt="Escudo B" width={80} height={80} />
+             <div style={{ textAlign: 'center' }}>
+               <Image src={proximoJogo.timeB.escudoUrl} alt="Escudo B" width={80} height={80} style={{ objectFit: 'contain' }} />
+               <p style={{ fontWeight: 'bold', marginTop: '10px' }}>{proximoJogo.timeB.nome}</p>
+             </div>
           </div>
-          <p style={{ marginTop: '20px', fontSize: '20px' }}>Aguardando o início pelo mesário...</p>
+          <p style={{ fontSize: '18px', color: '#94a3b8' }}>Aguardando o início da partida pela mesa...</p>
         </div>
       ) : (
         <div className={styles.mensagemEspera}>
-          <h2>O torneio foi concluído!</h2>
+          <h2>O torneio foi concluído! 🏆</h2>
+          <p style={{ fontSize: '18px', color: '#94a3b8', marginTop: '15px' }}>Confira a classificação final na central do torneio.</p>
         </div>
       )}
     </div>
