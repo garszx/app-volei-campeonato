@@ -1,84 +1,96 @@
-/* app/setup/setup.module.css */
 .container {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 20px;
 }
 
 .title {
   text-align: center;
-  margin-bottom: 30px;
   color: var(--foreground);
-}
-
-.formGroup {
-  margin-bottom: 20px;
-}
-
-.label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.input {
-  width: 100%;
-  box-sizing: border-box; /* Mantém o input perfeitamente alinhado dentro do card */
-  padding: 10px;
-  border: 1px solid var(--input-border);
-  border-radius: 5px;
-  font-size: 16px;
-  background-color: var(--input-bg);
-  color: var(--input-text);
-}
-
-.teamGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
   margin-bottom: 30px;
 }
 
-.teamCard {
+.configPanel {
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
-  padding: 15px;
+  padding: 25px;
   border-radius: 8px;
-  background-color: var(--card-bg);
+  margin-bottom: 40px;
 }
 
-.teamTitle {
+.configTitle {
   margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 18px;
-  color: var(--foreground);
+  margin-bottom: 20px;
+  color: var(--btn-bg);
+  font-size: 20px;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 10px;
 }
 
-.fileInput {
-  width: 100%;
-  box-sizing: border-box; /* Aplica a mesma regra ao botão de upload */
-  margin-top: 5px;
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.configItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.configItem label {
+  font-weight: bold;
   font-size: 14px;
   color: var(--foreground);
 }
 
-.submitBtn {
+.input, .select {
+  padding: 12px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  border-radius: 5px;
+  font-size: 16px;
+  width: 100%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.card h3 {
+  margin: 0;
+  color: var(--foreground);
+}
+
+.btnPrimary {
+  display: block;
   width: 100%;
   padding: 15px;
   background-color: var(--btn-bg);
-  color: var(--btn-text);
+  color: white;
   border: none;
   border-radius: 5px;
   font-size: 18px;
   font-weight: bold;
   cursor: pointer;
-  transition: filter 0.2s;
+  transition: opacity 0.2s;
 }
 
-.submitBtn:hover {
-  filter: brightness(0.9);
-}
-
-.submitBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btnPrimary:hover {
+  opacity: 0.9;
 }

@@ -1,9 +1,7 @@
-// app/admin/page.tsx
 "use client";
 
 import { useEffect, useState, FormEvent } from 'react';
 import { db } from '../../firebase';
-// Adicionamos a função "remove" na importação
 import { ref, onValue, update, remove } from 'firebase/database';
 import styles from './admin.module.css';
 
@@ -13,6 +11,7 @@ interface TimeDb {
   escudoUrl: string;
   sets_vencidos: number;
   total_pontos: number;
+  pontos_classificacao: number;
 }
 
 interface TimeDaPartida {
@@ -34,12 +33,24 @@ interface Partida {
   timeB: TimeDaPartida;
 }
 
+interface Regras {
+  horarioInicio: string;
+  intervaloMinutos: number;
+  formatoGrupos: string;
+  formatoFinais: string;
+  sistemaClassificacao: string;
+  ptsVitoriaPerfeita: number;
+  ptsVitoriaTiebreak: number;
+  ptsDerrotaTiebreak: number;
+}
+
 export default function PainelAdmin() {
   const [senha, setSenha] = useState('');
   const [autenticado, setAutenticado] = useState(false);
   const [partidas, setPartidas] = useState<Partida[]>([]);
   const [timesMap, setTimesMap] = useState<Record<string, TimeDb>>({});
   const [statusTorneio, setStatusTorneio] = useState<string>('');
+  const [regras, setRegras] = useState<Regras | null>(null);
 
   useEffect(() => {
     if (!autenticado) return;
@@ -49,7 +60,9 @@ export default function PainelAdmin() {
       const data = snapshot.val();
       if (data) {
         setStatusTorneio(data.config?.status || '');
+        setRegras(data.config?.regras || null);
         setTimesMap(data.times || {});
+        
         if (data.partidas) {
           const partidasArray = Object.values(data.partidas) as Partida[];
           partidasArray.sort((a, b) => {
@@ -62,10 +75,10 @@ export default function PainelAdmin() {
           setPartidas([]);
         }
       } else {
-        // Se a raiz do torneio for apagada (Reset), limpamos a tela local
         setStatusTorneio('');
         setTimesMap({});
         setPartidas([]);
+        setRegras(null);
       }
     });
 
@@ -94,7 +107,10 @@ export default function PainelAdmin() {
   };
 
   const encerrarAcao = async (jogo: Partida) => {
-    const isMelhorDe3 = jogo.fase === 'final' || jogo.fase === 'terceiro_lugar';
+    // Verifica formato dinamicamente baseado nas Regras escolhidas
+    const isMelhorDe3 = (jogo.fase === 'grupos' && regras?.formatoGrupos === 'melhor_de_3') || 
+                        ((jogo.fase === 'semifinal' || jogo.fase === 'final' || jogo.fase === 'terceiro_lugar') && regras?.formatoFinais === 'melhor_de_3');
+    
     const isTieBreak = isMelhorDe3 && jogo.setsVencidosA === 1 && jogo.setsVencidosB === 1;
     const pontosNecessarios = isTieBreak ? 15 : 25;
     
@@ -102,37 +118,77 @@ export default function PainelAdmin() {
       if (!confirm(`Nenhum time atingiu ${pontosNecessarios} pontos. Encerrar ${isMelhorDe3 ? 'set' : 'partida'} mesmo assim?`)) return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | number> = {};
     const vencedorA = jogo.pontosA > jogo.pontosB;
     const vencedorB = jogo.pontosB > jogo.pontosA;
+
+    const timeA_db = timesMap[jogo.timeA.id];
+    const timeB_db = timesMap[jogo.timeB.id];
 
     if (isMelhorDe3) {
       const novosSetsA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
       const novosSetsB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0);
 
       if (novosSetsA === 2 || novosSetsB === 2) {
+        // Alguém atingiu 2 sets, Partida Encerrada!
         updates[`torneio/partidas/${jogo.id}/status`] = 'finalizado';
         updates[`torneio/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
         updates[`torneio/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
+
+        // Calcula Pontuação de Classificação (Se for fase de grupos)
+        if (timeA_db && timeB_db && jogo.fase === 'grupos') {
+          let ptsA = 0;
+          let ptsB = 0;
+          
+          if (regras?.sistemaClassificacao === 'sistema_pontos') {
+            if (novosSetsA === 2 && novosSetsB === 0) { ptsA = regras.ptsVitoriaPerfeita; }
+            else if (novosSetsB === 2 && novosSetsA === 0) { ptsB = regras.ptsVitoriaPerfeita; }
+            else if (novosSetsA === 2 && novosSetsB === 1) { ptsA = regras.ptsVitoriaTiebreak; ptsB = regras.ptsDerrotaTiebreak; }
+            else if (novosSetsB === 2 && novosSetsA === 1) { ptsB = regras.ptsVitoriaTiebreak; ptsA = regras.ptsDerrotaTiebreak; }
+          } else {
+            if (novosSetsA === 2) ptsA = 1;
+            if (novosSetsB === 2) ptsB = 1;
+          }
+
+          updates[`torneio/times/${jogo.timeA.id}/pontos_classificacao`] = (timeA_db.pontos_classificacao || 0) + ptsA;
+          updates[`torneio/times/${jogo.timeB.id}/pontos_classificacao`] = (timeB_db.pontos_classificacao || 0) + ptsB;
+          updates[`torneio/times/${jogo.timeA.id}/sets_vencidos`] = (timeA_db.sets_vencidos || 0) + novosSetsA;
+          updates[`torneio/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + novosSetsB;
+        }
       } else {
+        // Próximo Set
         updates[`torneio/partidas/${jogo.id}/pontosA`] = 0;
         updates[`torneio/partidas/${jogo.id}/pontosB`] = 0;
         updates[`torneio/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
         updates[`torneio/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
       }
     } else {
+      // Formato Set Único
       updates[`torneio/partidas/${jogo.id}/status`] = 'finalizado';
       
-      const timeA_db = timesMap[jogo.timeA.id];
-      const timeB_db = timesMap[jogo.timeB.id];
-      
-      if (timeA_db && timeB_db) {
-        updates[`torneio/times/${jogo.timeA.id}/total_pontos`] = timeA_db.total_pontos + jogo.pontosA;
-        updates[`torneio/times/${jogo.timeA.id}/sets_vencidos`] = timeA_db.sets_vencidos + (vencedorA ? 1 : 0);
-        updates[`torneio/times/${jogo.timeB.id}/total_pontos`] = timeB_db.total_pontos + jogo.pontosB;
-        updates[`torneio/times/${jogo.timeB.id}/sets_vencidos`] = timeB_db.sets_vencidos + (vencedorB ? 1 : 0);
+      if (timeA_db && timeB_db && jogo.fase === 'grupos') {
+        let ptsA = 0;
+        let ptsB = 0;
+        
+        if (regras?.sistemaClassificacao === 'sistema_pontos') {
+          if (vencedorA) ptsA = regras.ptsVitoriaPerfeita;
+          if (vencedorB) ptsB = regras.ptsVitoriaPerfeita;
+        } else {
+          if (vencedorA) ptsA = 1;
+          if (vencedorB) ptsB = 1;
+        }
+
+        updates[`torneio/times/${jogo.timeA.id}/pontos_classificacao`] = (timeA_db.pontos_classificacao || 0) + ptsA;
+        updates[`torneio/times/${jogo.timeB.id}/pontos_classificacao`] = (timeB_db.pontos_classificacao || 0) + ptsB;
+        updates[`torneio/times/${jogo.timeA.id}/sets_vencidos`] = (timeA_db.sets_vencidos || 0) + (vencedorA ? 1 : 0);
+        updates[`torneio/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + (vencedorB ? 1 : 0);
       }
+    }
+
+    // Soma os pontos corridos totais da partida de qualquer forma para desempate
+    if (timeA_db && timeB_db && jogo.fase === 'grupos') {
+        updates[`torneio/times/${jogo.timeA.id}/total_pontos`] = (timeA_db.total_pontos || 0) + jogo.pontosA;
+        updates[`torneio/times/${jogo.timeB.id}/total_pontos`] = (timeB_db.total_pontos || 0) + jogo.pontosB;
     }
 
     await update(ref(db), updates);
@@ -141,20 +197,35 @@ export default function PainelAdmin() {
   const gerarSemifinais = async () => {
     if (!confirm("Confirmar o encerramento da fase de grupos e gerar as Semifinais?")) return;
     const timesArray = Object.values(timesMap);
-    timesArray.sort((a, b) => b.sets_vencidos !== a.sets_vencidos ? b.sets_vencidos - a.sets_vencidos : b.total_pontos - a.total_pontos);
+    
+    // Novo critério de ordenação com base nas Regras dinâmicas
+    timesArray.sort((a, b) => {
+      // 1. Prioriza Pontos de Classificação (do Sistema Escolhido)
+      if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) {
+        return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
+      }
+      // 2. Desempate por Sets Vencidos
+      if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) {
+        return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
+      }
+      // 3. Desempate por Pontos Totais
+      return (b.total_pontos || 0) - (a.total_pontos || 0);
+    });
+
     const classificados = timesArray.slice(0, 4);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | Partida> = {};
     updates['torneio/config/status'] = 'semifinais';
     
     updates['torneio/partidas/jogo_16'] = {
-      id: 'jogo_16', fase: 'semifinal', horario: '15:00', status: 'pendente', pontosA: 0, pontosB: 0,
-      timeA: classificados[0], timeB: classificados[3]
+      id: 'jogo_16', fase: 'semifinal', horario: 'SEMIFINAL 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0,
+      timeA: { id: classificados[0].id, nome: classificados[0].nome, escudoUrl: classificados[0].escudoUrl }, 
+      timeB: { id: classificados[3].id, nome: classificados[3].nome, escudoUrl: classificados[3].escudoUrl }
     };
     updates['torneio/partidas/jogo_17'] = {
-      id: 'jogo_17', fase: 'semifinal', horario: '15:30', status: 'pendente', pontosA: 0, pontosB: 0,
-      timeA: classificados[1], timeB: classificados[2]
+      id: 'jogo_17', fase: 'semifinal', horario: 'SEMIFINAL 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0,
+      timeA: { id: classificados[1].id, nome: classificados[1].nome, escudoUrl: classificados[1].escudoUrl }, 
+      timeB: { id: classificados[2].id, nome: classificados[2].nome, escudoUrl: classificados[2].escudoUrl }
     };
 
     await update(ref(db), updates);
@@ -167,37 +238,40 @@ export default function PainelAdmin() {
     const semi2 = partidas.find(p => p.id === 'jogo_17');
     if (!semi1 || !semi2) return;
 
-    const vencedor16 = semi1.pontosA > semi1.pontosB ? semi1.timeA : semi1.timeB;
-    const perdedor16 = semi1.pontosA > semi1.pontosB ? semi1.timeB : semi1.timeA;
-    const vencedor17 = semi2.pontosA > semi2.pontosB ? semi2.timeA : semi2.timeB;
-    const perdedor17 = semi2.pontosA > semi2.pontosB ? semi2.timeB : semi2.timeA;
+    // Acha os vencedores se foi melhor de 3 ou set único
+    const isSemi1MelhorDe3 = (semi1.setsVencidosA || 0) === 2 || (semi1.setsVencidosB || 0) === 2;
+    const semi1VenceuA = isSemi1MelhorDe3 ? (semi1.setsVencidosA === 2) : (semi1.pontosA > semi1.pontosB);
+    
+    const isSemi2MelhorDe3 = (semi2.setsVencidosA || 0) === 2 || (semi2.setsVencidosB || 0) === 2;
+    const semi2VenceuA = isSemi2MelhorDe3 ? (semi2.setsVencidosA === 2) : (semi2.pontosA > semi2.pontosB);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updates: Record<string, any> = {};
+    const vencedor16 = semi1VenceuA ? semi1.timeA : semi1.timeB;
+    const perdedor16 = semi1VenceuA ? semi1.timeB : semi1.timeA;
+    const vencedor17 = semi2VenceuA ? semi2.timeA : semi2.timeB;
+    const perdedor17 = semi2VenceuA ? semi2.timeB : semi2.timeA;
+
+    const updates: Record<string, string | Partida> = {};
     updates['torneio/config/status'] = 'finais';
 
     updates['torneio/partidas/jogo_18'] = {
-      id: 'jogo_18', fase: 'terceiro_lugar', horario: '16:00', status: 'pendente',
+      id: 'jogo_18', fase: 'terceiro_lugar', horario: 'DISPUTA 3º', status: 'pendente',
       pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: perdedor16, timeB: perdedor17
     };
     updates['torneio/partidas/jogo_19'] = {
-      id: 'jogo_19', fase: 'final', horario: '17:00', status: 'pendente',
+      id: 'jogo_19', fase: 'final', horario: 'FINAL', status: 'pendente',
       pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: vencedor16, timeB: vencedor17
     };
 
     await update(ref(db), updates);
   };
 
-  // Função para deletar o torneio
   const resetarTorneio = async () => {
     const confirmacao1 = confirm("⚠️ ATENÇÃO: Isso vai apagar TODOS os times, partidas e configurações. Deseja continuar?");
     if (!confirmacao1) return;
-
     const confirmacao2 = confirm("Tem certeza absoluta? Essa ação NÃO PODE SER DESFEITA.");
     if (!confirmacao2) return;
 
     try {
-      // O comando remove apaga todo o nó "torneio" do Realtime Database
       await remove(ref(db, 'torneio'));
       alert("Torneio zerado com sucesso! Você pode voltar para a aba de Configuração (/setup) para iniciar um novo.");
     } catch (error) {
@@ -226,9 +300,13 @@ export default function PainelAdmin() {
   const semisProntas = statusTorneio === 'semifinais' && semi1?.status === 'finalizado' && semi2?.status === 'finalizado';
 
   let isTieBreak = false;
+  let isMelhorDe3 = false;
   let pontosNecessarios = 25;
-  if (jogoAtual) {
-    const isMelhorDe3 = jogoAtual.fase === 'final' || jogoAtual.fase === 'terceiro_lugar';
+  
+  if (jogoAtual && regras) {
+    isMelhorDe3 = (jogoAtual.fase === 'grupos' && regras.formatoGrupos === 'melhor_de_3') || 
+                  ((jogoAtual.fase === 'semifinal' || jogoAtual.fase === 'final' || jogoAtual.fase === 'terceiro_lugar') && regras.formatoFinais === 'melhor_de_3');
+    
     isTieBreak = isMelhorDe3 && jogoAtual.setsVencidosA === 1 && jogoAtual.setsVencidosB === 1;
     pontosNecessarios = isTieBreak ? 15 : 25;
   }
@@ -237,12 +315,11 @@ export default function PainelAdmin() {
     <div className={styles.container}>
       <h1>Controle de Jogo</h1>
 
-      {/* Renderização principal dos jogos */}
       {jogoAtual ? (
         <div className={styles.card}>
           <h2 style={{ color: 'var(--btn-bg)' }}>Jogo em Andamento - {jogoAtual.horario}</h2>
           
-          {(jogoAtual.fase === 'final' || jogoAtual.fase === 'terceiro_lugar') && (
+          {isMelhorDe3 && (
             <div>
               <h3 style={{ color: '#10b981', margin: '10px 0' }}>
                 Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}
@@ -282,7 +359,7 @@ export default function PainelAdmin() {
             onClick={() => encerrarAcao(jogoAtual)}
             disabled={jogoAtual.pontosA < pontosNecessarios && jogoAtual.pontosB < pontosNecessarios}
           >
-            {jogoAtual.fase === 'final' || jogoAtual.fase === 'terceiro_lugar' ? 'Encerrar Set' : 'Encerrar Partida'}
+            {isMelhorDe3 ? 'Encerrar Set' : 'Encerrar Partida'}
           </button>
         </div>
       ) : proximoJogo ? (
@@ -315,7 +392,6 @@ export default function PainelAdmin() {
         </div>
       )}
 
-      {/* ZONA DE PERIGO (RESET) */}
       <div className={styles.dangerZone}>
         <h3 style={{ color: '#ef4444', margin: 0 }}>Zona de Perigo</h3>
         <p style={{ margin: 0, fontSize: '14px', color: 'var(--foreground)' }}>

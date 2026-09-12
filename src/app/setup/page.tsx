@@ -1,163 +1,190 @@
-// app/setup/page.tsx
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '../../firebase'; // Ajuste o caminho se necessário
-import { ref as dbRef, set } from 'firebase/database';
+import { db } from '../../firebase';
+import { ref, set } from 'firebase/database';
 import styles from './setup.module.css';
 
-// 1. Definindo as tipagens (Interfaces)
-interface TimeData {
-  nome: string;
-  escudoFile: File | null;
-}
-
-interface TimeProcessado {
+interface TimeConfig {
   id: string;
   nome: string;
   escudoUrl: string;
-  sets_vencidos: number;
-  total_pontos: number;
 }
 
-// 2. Função auxiliar para converter a imagem em texto (Base64)
-const converterParaBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-  });
-};
-
-export default function SetupTorneio() {
+export default function Setup() {
   const router = useRouter();
-  const [campeonatoNome, setCampeonatoNome] = useState<string>('');
   
-  const [times, setTimes] = useState<TimeData[]>(
-    Array(6).fill({ nome: '', escudoFile: null })
-  );
-  
-  const [loading, setLoading] = useState<boolean>(false);
+  const [regras, setRegras] = useState({
+    horarioInicio: '08:00',
+    intervaloMinutos: 45,
+    formatoGrupos: 'set_unico',
+    formatoFinais: 'melhor_de_3',
+    sistemaClassificacao: 'vitorias_simples', // NOVA OPÇÃO: 'vitorias_simples' ou 'sistema_pontos'
+    ptsVitoriaPerfeita: 3,
+    ptsVitoriaTiebreak: 2,
+    ptsDerrotaTiebreak: 1
+  });
 
-  const handleNameChange = (index: number, value: string) => {
+  const [times, setTimes] = useState<TimeConfig[]>([
+    { id: 'time_1', nome: '', escudoUrl: '' },
+    { id: 'time_2', nome: '', escudoUrl: '' },
+    { id: 'time_3', nome: '', escudoUrl: '' },
+    { id: 'time_4', nome: '', escudoUrl: '' },
+    { id: 'time_5', nome: '', escudoUrl: '' },
+    { id: 'time_6', nome: '', escudoUrl: '' },
+  ]);
+
+  const handleRegraChange = (campo: string, valor: string | number) => {
+    setRegras(prev => ({ ...prev, [campo]: valor }));
+  };
+
+  const handleTimeChange = (index: number, campo: keyof TimeConfig, valor: string) => {
     const novosTimes = [...times];
-    novosTimes[index] = { ...novosTimes[index], nome: value };
+    novosTimes[index][campo] = valor;
     setTimes(novosTimes);
   };
 
-  const handleFileChange = (index: number, file: File | null) => {
-    const novosTimes = [...times];
-    novosTimes[index] = { ...novosTimes[index], escudoFile: file };
-    setTimes(novosTimes);
+  const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleTimeChange(index, 'escudoUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const isFormValid = (): boolean => {
-    if (!campeonatoNome.trim()) return false;
-    return times.every((t) => t.nome.trim() !== '' && t.escudoFile !== null);
-  };
+  const salvarSetup = async () => {
+    if (times.some(t => !t.nome || !t.escudoUrl)) {
+      alert('Preencha todos os nomes e imagens dos 6 times!');
+      return;
+    }
 
-  const handleSalvarTorneio = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+    const timesObj: Record<string, TimeConfig & { sets_vencidos: number; total_pontos: number; pontos_classificacao: number }> = {};
+    
+    times.forEach(t => {
+      timesObj[t.id] = {
+        ...t,
+        sets_vencidos: 0,
+        total_pontos: 0,
+        pontos_classificacao: 0 // Novo campo para o Ranking
+      };
+    });
 
     try {
-      const timesProcessados: Record<string, TimeProcessado> = {};
-
-      for (let i = 0; i < 6; i++) {
-        const time = times[i];
-        
-        if (!time.escudoFile) continue;
-
-        // Converte a imagem para Base64 em vez de usar o Storage
-        const base64Url = await converterParaBase64(time.escudoFile);
-
-        timesProcessados[`time_${i + 1}`] = {
-          id: `time_${i + 1}`,
-          nome: time.nome,
-          escudoUrl: base64Url,
-          sets_vencidos: 0,
-          total_pontos: 0
-        };
-      }
-
-      await set(dbRef(db, 'torneio'), {
+      await set(ref(db, 'torneio'), {
         config: {
-          nome: campeonatoNome,
-          status: 'aguardando_sorteio'
+          status: 'aguardando_sorteio',
+          regras: regras
         },
-        times: timesProcessados
+        times: timesObj
       });
 
-      // Redireciona automaticamente para a tela da tabela
       router.push('/tabela');
-      
     } catch (error) {
-      console.error("Erro ao salvar dados:", error);
-      alert("Houve um erro ao processar os times. Verifique o console.");
-      setLoading(false);
-    } 
+      console.error('Erro ao salvar:', error);
+      alert('Erro ao salvar os dados.');
+    }
   };
 
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Configuração do Campeonato</h1>
-      
-      <form onSubmit={handleSalvarTorneio}>
-        <div className={styles.formGroup}>
-          <label className={styles.label}>Nome do Campeonato</label>
-          <input 
-            type="text" 
-            className={styles.input}
-            placeholder="Ex: Taça Blumenau de Vôlei"
-            value={campeonatoNome}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setCampeonatoNome(e.target.value)}
-          />
-        </div>
 
-        <h2 className={styles.title} style={{marginTop: '40px', fontSize: '24px'}}>Cadastro de Times</h2>
+      <div className={styles.configPanel}>
+        <h2 className={styles.configTitle}>Regras e Formato</h2>
         
-        <div className={styles.teamGrid}>
-          {times.map((time, index) => (
-            <div key={index} className={styles.teamCard}>
-              <h3 className={styles.teamTitle}>Time {index + 1}</h3>
-              
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Nome:</label>
-                <input 
-                  type="text" 
-                  className={styles.input}
-                  placeholder={`Ex: Apex Voleibol`}
-                  value={time.nome}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => handleNameChange(index, e.target.value)}
-                />
-              </div>
+        <div className={styles.configGrid}>
+          <div className={styles.configItem}>
+            <label>Horário de Início (1º Jogo)</label>
+            <input 
+              type="time" 
+              className={styles.input} 
+              value={regras.horarioInicio}
+              onChange={(e) => handleRegraChange('horarioInicio', e.target.value)}
+            />
+          </div>
 
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Brasão/Logo:</label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  className={styles.fileInput}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const file = e.target.files ? e.target.files[0] : null;
-                    handleFileChange(index, file);
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+          <div className={styles.configItem}>
+            <label>Intervalo entre jogos (Minutos)</label>
+            <input 
+              type="number" 
+              className={styles.input} 
+              value={regras.intervaloMinutos}
+              onChange={(e) => handleRegraChange('intervaloMinutos', Number(e.target.value))}
+            />
+          </div>
+
+          <div className={styles.configItem}>
+            <label>Fase de Grupos</label>
+            <select 
+              className={styles.select}
+              value={regras.formatoGrupos}
+              onChange={(e) => handleRegraChange('formatoGrupos', e.target.value)}
+            >
+              <option value="set_unico">Set Único (até 25)</option>
+              <option value="melhor_de_3">Melhor de 3 (com Tie-Break)</option>
+            </select>
+          </div>
+
+          <div className={styles.configItem}>
+            <label>Finais e Semifinais</label>
+            <select 
+              className={styles.select}
+              value={regras.formatoFinais}
+              onChange={(e) => handleRegraChange('formatoFinais', e.target.value)}
+            >
+              <option value="melhor_de_3">Melhor de 3 (com Tie-Break)</option>
+              <option value="set_unico">Set Único (até 25)</option>
+            </select>
+          </div>
+
+          <div className={styles.configItem}>
+            <label>Sistema de Classificação</label>
+            <select 
+              className={styles.select}
+              value={regras.sistemaClassificacao}
+              onChange={(e) => handleRegraChange('sistemaClassificacao', e.target.value)}
+            >
+              <option value="vitorias_simples">Vitórias Simples (Quem ganha mais passa)</option>
+              <option value="sistema_pontos">Sistema de Pontos (3 pts p/ 2x0, 2 pts p/ 2x1)</option>
+            </select>
+          </div>
         </div>
+      </div>
 
-        <button 
-          type="submit" 
-          className={styles.submitBtn}
-          disabled={!isFormValid() || loading}
-        >
-          {loading ? 'Salvando...' : 'Cadastrar Times e Avançar'}
-        </button>
-      </form>
+      <h2 className={styles.title}>Cadastro de Times</h2>
+      <div className={styles.grid}>
+        {times.map((time, index) => (
+          <div key={time.id} className={styles.card}>
+            <h3>Time {index + 1}</h3>
+            <div className={styles.configItem}>
+              <label>Nome:</label>
+              <input
+                type="text"
+                className={styles.input}
+                value={time.nome}
+                onChange={(e) => handleTimeChange(index, 'nome', e.target.value)}
+              />
+            </div>
+            <div className={styles.configItem}>
+              <label>Brasão/Logo:</label>
+              <input
+                type="file"
+                accept="image/*"
+                className={styles.input}
+                onChange={(e) => handleImageUpload(index, e)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={salvarSetup} className={styles.btnPrimary}>
+        Salvar Configurações e Avançar
+      </button>
     </div>
   );
 }

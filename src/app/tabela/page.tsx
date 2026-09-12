@@ -18,6 +18,7 @@ interface TimeDb {
   escudoUrl: string;
   sets_vencidos: number;
   total_pontos: number;
+  pontos_classificacao: number; // Novo campo de pontuação
 }
 
 interface Partida {
@@ -33,12 +34,24 @@ interface Partida {
   timeB: Time;
 }
 
+interface Regras {
+  horarioInicio: string;
+  intervaloMinutos: number;
+  formatoGrupos: string;
+  formatoFinais: string;
+  sistemaClassificacao: string;
+  ptsVitoriaPerfeita: number;
+  ptsVitoriaTiebreak: number;
+  ptsDerrotaTiebreak: number;
+}
+
 export default function HubTorneio() {
   const [abaAtiva, setAbaAtiva] = useState<'jogos' | 'classificacao'>('jogos');
   const [timesClassificacao, setTimesClassificacao] = useState<TimeDb[]>([]);
   const [timesBase, setTimesBase] = useState<Time[]>([]);
   const [partidas, setPartidas] = useState<Partida[]>([]);
   const [statusTorneio, setStatusTorneio] = useState<string>('');
+  const [regras, setRegras] = useState<Regras | null>(null);
 
   useEffect(() => {
     const torneioRef = ref(db, 'torneio');
@@ -46,14 +59,22 @@ export default function HubTorneio() {
       const data = snapshot.val();
       if (data) {
         setStatusTorneio(data.config?.status || '');
+        setRegras(data.config?.regras || null);
         
         if (data.times) {
           setTimesBase(Object.values(data.times));
           
           const timesArray = Object.values(data.times) as TimeDb[];
+          
+          // Ordenação idêntica à do Admin (Lendo a nova regra)
           timesArray.sort((a, b) => {
-            if (b.sets_vencidos !== a.sets_vencidos) return b.sets_vencidos - a.sets_vencidos;
-            return b.total_pontos - a.total_pontos;
+            if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) {
+              return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
+            }
+            if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) {
+              return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
+            }
+            return (b.total_pontos || 0) - (a.total_pontos || 0);
           });
           setTimesClassificacao(timesArray);
         }
@@ -79,6 +100,11 @@ export default function HubTorneio() {
       return;
     }
 
+    if (!regras) {
+      alert("Regras do torneio não encontradas. Por favor, configure o torneio novamente no Setup.");
+      return;
+    }
+
     const timesSorteados = [...timesBase];
     for (let i = timesSorteados.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -95,10 +121,14 @@ export default function HubTorneio() {
 
     const novasPartidas: Record<string, Partida> = {};
 
+    const [horaStr, minStr] = regras.horarioInicio.split(':');
+    const minutosIniciais = parseInt(horaStr) * 60 + parseInt(minStr);
+
     grade.forEach((confronto, index) => {
-      const minutosTotais = 7 * 60 + 30 + (index * 30);
-      const horas = Math.floor(minutosTotais / 60);
+      const minutosTotais = minutosIniciais + (index * regras.intervaloMinutos);
+      const horas = Math.floor(minutosTotais / 60) % 24;
       const minutos = minutosTotais % 60;
+      
       const horarioFormatado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
       const idPartida = `jogo_${index + 1}`;
 
@@ -109,6 +139,8 @@ export default function HubTorneio() {
         status: 'pendente',
         pontosA: 0,
         pontosB: 0,
+        setsVencidosA: 0,
+        setsVencidosB: 0,
         timeA: { id: timesSorteados[confronto[0]].id, nome: timesSorteados[confronto[0]].nome, escudoUrl: timesSorteados[confronto[0]].escudoUrl },
         timeB: { id: timesSorteados[confronto[1]].id, nome: timesSorteados[confronto[1]].nome, escudoUrl: timesSorteados[confronto[1]].escudoUrl }
       };
@@ -155,6 +187,9 @@ export default function HubTorneio() {
             if (jogo.status === 'em_andamento') { classeStatus = styles.statusAndamento; textoStatus = 'Ao Vivo'; }
             if (jogo.status === 'finalizado') { classeStatus = styles.statusFinalizado; textoStatus = 'Finalizado'; }
 
+            const isMelhorDe3 = (jogo.fase === 'grupos' && regras?.formatoGrupos === 'melhor_de_3') || 
+                                ((jogo.fase === 'semifinal' || jogo.fase === 'final' || jogo.fase === 'terceiro_lugar') && regras?.formatoFinais === 'melhor_de_3');
+
             return (
               <div key={jogo.id} className={styles.cardJogo}>
                 <div className={styles.cardTop}>
@@ -174,7 +209,7 @@ export default function HubTorneio() {
                   </div>
                   
                   <div className={styles.placarCentral}>
-                    {(jogo.fase === 'final' || jogo.fase === 'terceiro_lugar') && jogo.status !== 'pendente' && (
+                    {isMelhorDe3 && jogo.status !== 'pendente' && (
                       <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold', marginBottom: '4px' }}>
                         Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}
                       </span>
@@ -202,8 +237,9 @@ export default function HubTorneio() {
               <tr>
                 <th>Pos</th>
                 <th style={{ textAlign: 'left' }}>Time</th>
+                <th>Pts</th>
                 <th>Vitórias (Sets)</th>
-                <th>Pontos Totais</th>
+                <th>Saldo de Pontos</th>
               </tr>
             </thead>
             <tbody>
@@ -216,8 +252,11 @@ export default function HubTorneio() {
                       {time.nome}
                     </div>
                   </td>
-                  <td className={styles.vitorias}>{time.sets_vencidos}</td>
-                  <td style={{ fontWeight: 'bold' }}>{time.total_pontos}</td>
+                  <td style={{ fontWeight: 'bold', color: 'var(--btn-bg)', fontSize: '18px' }}>
+                    {time.pontos_classificacao || 0}
+                  </td>
+                  <td className={styles.vitorias}>{time.sets_vencidos || 0}</td>
+                  <td style={{ fontWeight: 'bold' }}>{time.total_pontos || 0}</td>
                 </tr>
               ))}
             </tbody>
