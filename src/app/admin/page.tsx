@@ -3,7 +3,8 @@
 
 import { useEffect, useState, FormEvent } from 'react';
 import { db } from '../../firebase';
-import { ref, onValue, update } from 'firebase/database';
+// Adicionamos a função "remove" na importação
+import { ref, onValue, update, remove } from 'firebase/database';
 import styles from './admin.module.css';
 
 interface TimeDb {
@@ -57,7 +58,14 @@ export default function PainelAdmin() {
             return numA - numB;
           });
           setPartidas(partidasArray);
+        } else {
+          setPartidas([]);
         }
+      } else {
+        // Se a raiz do torneio for apagada (Reset), limpamos a tela local
+        setStatusTorneio('');
+        setTimesMap({});
+        setPartidas([]);
       }
     });
 
@@ -180,6 +188,24 @@ export default function PainelAdmin() {
     await update(ref(db), updates);
   };
 
+  // Função para deletar o torneio
+  const resetarTorneio = async () => {
+    const confirmacao1 = confirm("⚠️ ATENÇÃO: Isso vai apagar TODOS os times, partidas e configurações. Deseja continuar?");
+    if (!confirmacao1) return;
+
+    const confirmacao2 = confirm("Tem certeza absoluta? Essa ação NÃO PODE SER DESFEITA.");
+    if (!confirmacao2) return;
+
+    try {
+      // O comando remove apaga todo o nó "torneio" do Realtime Database
+      await remove(ref(db, 'torneio'));
+      alert("Torneio zerado com sucesso! Você pode voltar para a aba de Configuração (/setup) para iniciar um novo.");
+    } catch (error) {
+      console.error("Erro ao resetar torneio:", error);
+      alert("Houve um erro ao tentar zerar o torneio.");
+    }
+  };
+
   if (!autenticado) {
     return (
       <div className={styles.container}>
@@ -199,7 +225,6 @@ export default function PainelAdmin() {
   const semi2 = partidas.find(p => p.id === 'jogo_17');
   const semisProntas = statusTorneio === 'semifinais' && semi1?.status === 'finalizado' && semi2?.status === 'finalizado';
 
-  // Lógica para exibição do botão e aviso visual de tie-break
   let isTieBreak = false;
   let pontosNecessarios = 25;
   if (jogoAtual) {
@@ -212,6 +237,7 @@ export default function PainelAdmin() {
     <div className={styles.container}>
       <h1>Controle de Jogo</h1>
 
+      {/* Renderização principal dos jogos */}
       {jogoAtual ? (
         <div className={styles.card}>
           <h2 style={{ color: 'var(--btn-bg)' }}>Jogo em Andamento - {jogoAtual.horario}</h2>
@@ -279,11 +305,27 @@ export default function PainelAdmin() {
             Gerar Final e Disputa de 3º
           </button>
         </div>
-      ) : (
+      ) : statusTorneio === 'finais' ? (
         <div className={styles.card}>
           <h2>Torneio Finalizado! Campeão Definido! 🏆</h2>
         </div>
+      ) : (
+        <div className={styles.card}>
+          <h2>Aguardando início do torneio...</h2>
+        </div>
       )}
+
+      {/* ZONA DE PERIGO (RESET) */}
+      <div className={styles.dangerZone}>
+        <h3 style={{ color: '#ef4444', margin: 0 }}>Zona de Perigo</h3>
+        <p style={{ margin: 0, fontSize: '14px', color: 'var(--foreground)' }}>
+          Use apenas para excluir todo o progresso atual e iniciar uma nova edição do campeonato.
+        </p>
+        <button className={styles.btnDanger} onClick={resetarTorneio}>
+          Zerar Torneio
+        </button>
+      </div>
+
     </div>
   );
 }

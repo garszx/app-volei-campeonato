@@ -1,3 +1,4 @@
+/* app/admin/admin.module.css */
 .container {
   max-width: 800px;
   margin: 0 auto;
@@ -115,4 +116,31 @@
 .btnEnd:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+}
+
+/* NOVOS ESTILOS PARA O RESET */
+.dangerZone {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 2px dashed #ef4444;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.btnDanger {
+  padding: 12px 24px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  transition: filter 0.2s;
+}
+
+.btnDanger:hover {
+  filter: brightness(0.9);
 }
