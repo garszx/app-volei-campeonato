@@ -16,6 +16,8 @@ export default function Setup() {
   const router = useRouter();
   
   const [regras, setRegras] = useState({
+    nomeCampeonato: 'Mania Cup', // Nome padrão
+    mostrarLogos: true, // Nova opção de logos
     horarioInicio: '08:00',
     intervaloMinutos: 45,
     formatoGrupos: 'set_unico',
@@ -33,7 +35,7 @@ export default function Setup() {
     { id: 'time_4', nome: '', escudoUrl: '' },
   ]);
 
-  const handleRegraChange = (campo: string, valor: string | number) => {
+  const handleRegraChange = (campo: string, valor: string | number | boolean) => {
     setRegras(prev => ({ ...prev, [campo]: valor }));
   };
 
@@ -78,8 +80,13 @@ export default function Setup() {
       return;
     }
 
-    if (times.some(t => !t.nome || !t.escudoUrl)) {
+    if (regras.mostrarLogos && times.some(t => !t.nome || !t.escudoUrl)) {
       alert('Preencha o nome e o brasão de todas as equipes cadastradas!');
+      return;
+    }
+
+    if (!regras.mostrarLogos && times.some(t => !t.nome)) {
+      alert('Preencha o nome de todas as equipes cadastradas!');
       return;
     }
 
@@ -120,6 +127,18 @@ export default function Setup() {
         <h2 className={styles.configTitle}>Regras e Formato</h2>
         
         <div className={styles.configGrid}>
+          {/* NOME DO CAMPEONATO */}
+          <div className={styles.configItem} style={{ gridColumn: '1 / -1' }}>
+            <label>Nome do Campeonato</label>
+            <input 
+              type="text" 
+              className={styles.input} 
+              value={regras.nomeCampeonato}
+              onChange={(e) => handleRegraChange('nomeCampeonato', e.target.value)}
+              placeholder="Ex: Copa Blumenau"
+            />
+          </div>
+
           <div className={styles.configItem}>
             <label>Horário de Início (1º Jogo)</label>
             <input 
@@ -140,6 +159,7 @@ export default function Setup() {
             />
           </div>
 
+          {/* NOVAS OPÇÕES DE SETS */}
           <div className={styles.configItem}>
             <label>Fase de Grupos</label>
             <select 
@@ -147,8 +167,10 @@ export default function Setup() {
               value={regras.formatoGrupos}
               onChange={(e) => handleRegraChange('formatoGrupos', e.target.value)}
             >
-              <option value="set_unico">Set Único (até 25)</option>
-              <option value="melhor_de_3">Melhor de 3 (com Tie-Break)</option>
+              <option value="set_unico_25">Set Único (até 25)</option>
+              <option value="set_unico_21">Set Único (até 21)</option>
+              <option value="melhor_de_3_25">Melhor de 3 (até 25, Tie 15)</option>
+              <option value="melhor_de_3_21">Melhor de 3 (até 21, Tie 15)</option>
             </select>
           </div>
 
@@ -159,8 +181,10 @@ export default function Setup() {
               value={regras.formatoFinais}
               onChange={(e) => handleRegraChange('formatoFinais', e.target.value)}
             >
-              <option value="melhor_de_3">Melhor de 3 (com Tie-Break)</option>
-              <option value="set_unico">Set Único (até 25)</option>
+              <option value="melhor_de_3_25">Melhor de 3 (até 25, Tie 15)</option>
+              <option value="melhor_de_3_21">Melhor de 3 (até 21, Tie 15)</option>
+              <option value="set_unico_25">Set Único (até 25)</option>
+              <option value="set_unico_21">Set Único (até 21)</option>
             </select>
           </div>
 
@@ -171,8 +195,21 @@ export default function Setup() {
               value={regras.sistemaClassificacao}
               onChange={(e) => handleRegraChange('sistemaClassificacao', e.target.value)}
             >
-              <option value="vitorias_simples">Vitórias Simples (Quem ganha mais passa)</option>
+              <option value="vitorias_simples">Vitórias Simples (Ocultar Coluna de Pts)</option>
               <option value="sistema_pontos">Sistema de Pontos (3 pts p/ 2x0, 2 pts p/ 2x1)</option>
+            </select>
+          </div>
+
+          {/* MOSTRAR OU ESCONDER LOGOS */}
+          <div className={styles.configItem}>
+            <label>Usar Logos/Brasões?</label>
+            <select 
+              className={styles.select}
+              value={regras.mostrarLogos ? 'sim' : 'nao'}
+              onChange={(e) => handleRegraChange('mostrarLogos', e.target.value === 'sim')}
+            >
+              <option value="sim">Sim, mostrar logos</option>
+              <option value="nao">Não, ocultar logos</option>
             </select>
           </div>
         </div>
@@ -210,15 +247,19 @@ export default function Setup() {
                 onChange={(e) => handleTimeChange(index, 'nome', e.target.value)}
               />
             </div>
-            <div className={styles.configItem}>
-              <label>Brasão/Logo:</label>
-              <input
-                type="file"
-                accept="image/*"
-                className={styles.input}
-                onChange={(e) => handleImageUpload(index, e)}
-              />
-            </div>
+            
+            {/* Esconde o upload de imagem se as logos estiverem desativadas */}
+            {regras.mostrarLogos && (
+              <div className={styles.configItem}>
+                <label>Brasão/Logo:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className={styles.input}
+                  onChange={(e) => handleImageUpload(index, e)}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
