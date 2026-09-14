@@ -10,7 +10,6 @@ import styles from './tabela.module.css';
 interface Time { id: string; nome: string; escudoUrl: string; }
 interface TimeDb { id: string; nome: string; escudoUrl: string; sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
 interface Partida { id: string; fase: string; horario: string; status: string; pontosA: number; pontosB: number; setsVencidosA?: number; setsVencidosB?: number; timeA: Time; timeB: Time; }
-// AQUI ESTAVA O ERRO! Adicionamos "turno: string;" no final da linha abaixo:
 interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; turno: string; }
 
 export default function HubTorneio() {
@@ -76,15 +75,34 @@ export default function HubTorneio() {
     const isTieBreak = isMelhorDe3 && jogo.setsVencidosA === 1 && jogo.setsVencidosB === 1;
     const pontosNecessarios = isTieBreak ? 15 : pontosBase;
     
-    if (jogo.pontosA < pontosNecessarios && jogo.pontosB < pontosNecessarios) { if (!confirm(`Nenhum time atingiu os pontos previstos. Encerrar mesmo assim?`)) return; }
+    // VALIDAÇÃO: Regra dos 2 pontos de diferença
+    const diferencaPontos = Math.abs(jogo.pontosA - jogo.pontosB);
+    const atingiuTeto = jogo.pontosA >= pontosNecessarios || jogo.pontosB >= pontosNecessarios;
+    
+    if (atingiuTeto && diferencaPontos < 2) {
+      alert(`Para encerrar o set, é necessário uma diferença de 2 pontos! Placar atual: ${jogo.pontosA} x ${jogo.pontosB}`);
+      return;
+    }
+
+    if (!atingiuTeto) { 
+      if (!confirm(`Nenhum time atingiu os pontos previstos (${pontosNecessarios}). Encerrar mesmo assim?`)) return; 
+    }
+
+    if (jogo.pontosA === jogo.pontosB) {
+      alert("O set não pode terminar empatado!");
+      return;
+    }
 
     const updates: Record<string, string | number> = {};
-    const vencedorA = jogo.pontosA > jogo.pontosB; const vencedorB = jogo.pontosB > jogo.pontosA;
-    const timeA_db = timesMap[jogo.timeA.id]; const timeB_db = timesMap[jogo.timeB.id];
+    const vencedorA = jogo.pontosA > jogo.pontosB; 
+    const vencedorB = jogo.pontosB > jogo.pontosA;
+    const timeA_db = timesMap[jogo.timeA.id]; 
+    const timeB_db = timesMap[jogo.timeB.id];
 
     if (isMelhorDe3) {
       const novosSetsA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
       const novosSetsB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0);
+      
       if (novosSetsA === 2 || novosSetsB === 2) {
         updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
         updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
@@ -101,8 +119,10 @@ export default function HubTorneio() {
           updates[`torneios/${torneioId}/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + novosSetsB;
         }
       } else {
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosA`] = 0; updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosB`] = 0;
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA; updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
+        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosA`] = 0; 
+        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosB`] = 0;
+        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA; 
+        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
       }
     } else {
       updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
@@ -115,10 +135,12 @@ export default function HubTorneio() {
         updates[`torneios/${torneioId}/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + (vencedorB ? 1 : 0);
       }
     }
+    
     if (timeA_db && timeB_db && jogo.fase === 'grupos') {
         updates[`torneios/${torneioId}/times/${jogo.timeA.id}/total_pontos`] = (timeA_db.total_pontos || 0) + jogo.pontosA;
         updates[`torneios/${torneioId}/times/${jogo.timeB.id}/total_pontos`] = (timeB_db.total_pontos || 0) + jogo.pontosB;
     }
+    
     await update(ref(db), updates);
   };
 
@@ -230,7 +252,6 @@ export default function HubTorneio() {
   const formatoPartidaAtual = jogoAtual?.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
   const isMelhorDe3Shared = formatoPartidaAtual?.includes('melhor_de_3');
   const isTieBreakShared = isMelhorDe3Shared && jogoAtual?.setsVencidosA === 1 && jogoAtual?.setsVencidosB === 1;
-  const pontosBaseAdmin = formatoPartidaAtual?.includes('_21') ? 21 : 25; const tetoPontos = isTieBreakShared ? 15 : pontosBaseAdmin;
 
   return (
     <div className={styles.container}>
@@ -347,7 +368,7 @@ export default function HubTorneio() {
                   <h2 style={{ fontSize: '40px', color: '#475569' }}>X</h2>
                   <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
                 </div>
-                <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)} disabled={jogoAtual.pontosA < tetoPontos && jogoAtual.pontosB < tetoPontos}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
+                <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
               </div>
             ) : proximoJogo ? (
               <div className={styles.card} style={{ textAlign: 'center' }}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 style={{ margin: '20px 0' }}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
