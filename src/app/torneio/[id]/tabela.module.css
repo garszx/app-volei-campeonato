@@ -387,6 +387,33 @@
   }
 }
 
+/* =========================================
+   CLASSES DE UTILIDADE (REFATORAÇÃO)
+   ========================================= */
+.textCenter { text-align: center; }
+.textLeft { text-align: left; }
+.boldText { font-weight: bold; }
+
+.setsLabel { font-size: 13px; color: #10b981; font-weight: bold; }
+.pontosClassificacao { font-weight: bold; color: #38bdf8; font-size: 18px; }
+
+.nextGameTitle { color: #38bdf8; }
+.nextGameContainer { display: flex; align-items: center; gap: 40px; justify-content: center; margin: 30px 0; }
+.imageContain { object-fit: contain; }
+
+.adminWarningTitle { color: #ef4444; margin-bottom: 10px; }
+.adminGameTitle { color: #10b981; text-align: center; }
+.adminSetsTitle { color: #10b981; }
+.tieBreakBadge { background-color: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold; }
+.adminVsText { font-size: 40px; color: #475569; }
+.adminNextGameMatch { margin: 20px 0; }
+
+.btnWarning { background-color: #f59e0b !important; color: white; }
+.dangerTitle { color: #ef4444; margin: 0; }
+.dangerDesc { margin: 5px 0 15px; font-size: 14px; }
+
+.tabBtnAdminActive { border-bottom-color: #ef4444 !important; color: #ef4444 !important; }
+
 @media print {
   body {
     background: white !important;

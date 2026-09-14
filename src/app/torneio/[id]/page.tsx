@@ -75,7 +75,6 @@ export default function HubTorneio() {
     const isTieBreak = isMelhorDe3 && jogo.setsVencidosA === 1 && jogo.setsVencidosB === 1;
     const pontosNecessarios = isTieBreak ? 15 : pontosBase;
     
-    // VALIDAÇÃO: Regra dos 2 pontos de diferença
     const diferencaPontos = Math.abs(jogo.pontosA - jogo.pontosB);
     const atingiuTeto = jogo.pontosA >= pontosNecessarios || jogo.pontosB >= pontosNecessarios;
     
@@ -262,7 +261,7 @@ export default function HubTorneio() {
           <button className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('jogos')}>Tabela de Jogos</button>
           <button className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('classificacao')}>Classificação</button>
           <button className={`${styles.tabBtn} ${abaAtiva === 'live' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('live')}>Telão Ao Vivo</button>
-          <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('admin')} style={{ borderBottomColor: abaAtiva === 'admin' ? '#ef4444' : 'transparent', color: abaAtiva === 'admin' ? '#ef4444' : '' }}>⚙️ Mesa</button>
+          <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnActive : ''} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => setAbaAtiva('admin')}>⚙️ Mesa</button>
         </div>
         {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
           <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Tabela Dinâmica</button>
@@ -286,13 +285,13 @@ export default function HubTorneio() {
                   <span className={styles.horario}>{jogo.horario}</span>
                 </div>
                 <div className={styles.confronto}>
-                  <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={styles.escudo} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
+                  <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
                   <div className={styles.placarCentral}>
-                    {isMd3 && jogo.status !== 'pendente' && <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold' }}>Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}</span>}
+                    {isMd3 && jogo.status !== 'pendente' && <span className={styles.setsLabel}>Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}</span>}
                     <span className={styles.placarNumeros}>{jogo.status === 'pendente' ? 'X' : `${jogo.pontosA} - ${jogo.pontosB}`}</span>
                     <span className={`${styles.statusTag} ${classeStatus}`}>{textoStatus}</span>
                   </div>
-                  <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeB.escudoUrl} alt="B" className={styles.escudo} width={50} height={50} />} <span>{jogo.timeB.nome}</span></div>
+                  <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeB.escudoUrl} alt="B" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeB.nome}</span></div>
                 </div>
               </div>
             );
@@ -307,7 +306,7 @@ export default function HubTorneio() {
             <table className={styles.tableClassificacao}>
               <thead>
                 <tr>
-                  <th>Pos</th><th style={{ textAlign: 'left' }}>Time</th>
+                  <th>Pos</th><th className={styles.textLeft}>Time</th>
                   {regras?.sistemaClassificacao === 'sistema_pontos' && <th>Pts</th>}
                   <th>Vitórias (Sets)</th><th>Saldo de Pontos</th>
                 </tr>
@@ -316,9 +315,9 @@ export default function HubTorneio() {
                 {timesClassificacao.map((time, index) => (
                   <tr key={time.id}>
                     <td className={styles.rank}>{index + 1}º</td>
-                    <td><div className={styles.teamCell}>{regras?.mostrarLogos && <Image src={time.escudoUrl} alt="Escudo" width={35} height={35} className={styles.escudo} />} {time.nome}</div></td>
-                    {regras?.sistemaClassificacao === 'sistema_pontos' && <td style={{ fontWeight: 'bold', color: 'var(--btn-bg)', fontSize: '18px' }}>{time.pontos_classificacao || 0}</td>}
-                    <td className={styles.vitorias}>{time.sets_vencidos || 0}</td><td style={{ fontWeight: 'bold' }}>{time.total_pontos || 0}</td>
+                    <td><div className={styles.teamCell}>{regras?.mostrarLogos && <Image src={time.escudoUrl} alt="Escudo" width={35} height={35} className={`${styles.escudo} ${styles.imageContain}`} />} {time.nome}</div></td>
+                    {regras?.sistemaClassificacao === 'sistema_pontos' && <td className={styles.pontosClassificacao}>{time.pontos_classificacao || 0}</td>}
+                    <td className={styles.vitorias}>{time.sets_vencidos || 0}</td><td className={styles.boldText}>{time.total_pontos || 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -334,18 +333,18 @@ export default function HubTorneio() {
               <div className={styles.headerLive}><span className={styles.liveBadge}>AO VIVO</span> <span className={styles.horarioBadge}>{jogoAtual.horario}</span></div>
               {isMelhorDe3Shared && <div className={styles.setsInfo}>Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong></div>}
               <div className={styles.placarLive}>
-                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeA.escudoUrl} alt="A" className={styles.escudoLive} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeA.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosA}</span></div>
+                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeA.escudoUrl} alt="A" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeA.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosA}</span></div>
                 <div className={styles.vsCard}><span className={styles.vsText}>X</span></div>
-                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeB.escudoUrl} alt="B" className={styles.escudoLive} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeB.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosB}</span></div>
+                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeB.escudoUrl} alt="B" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeB.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosB}</span></div>
               </div>
             </>
           ) : proximoJogo ? (
              <div className={styles.mensagemEspera}>
-              <h2 style={{ color: '#38bdf8' }}>Próxima Partida - {proximoJogo.horario}</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '40px', justifyContent: 'center', margin: '30px 0' }}>
-                 <div style={{ textAlign: 'center' }}>{regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} style={{ objectFit: 'contain' }} />}<p style={{ fontWeight: 'bold' }}>{proximoJogo.timeA.nome}</p></div>
+              <h2 className={styles.nextGameTitle}>Próxima Partida - {proximoJogo.horario}</h2>
+              <div className={styles.nextGameContainer}>
+                 <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeA.nome}</p></div>
                  <span className={styles.vsText}>X</span>
-                 <div style={{ textAlign: 'center' }}>{regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} style={{ objectFit: 'contain' }} />}<p style={{ fontWeight: 'bold' }}>{proximoJogo.timeB.nome}</p></div>
+                 <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeB.nome}</p></div>
               </div>
             </div>
           ) : (<div className={styles.mensagemEspera}><h2>Torneio Finalizado! 🏆</h2></div>)}
@@ -354,26 +353,26 @@ export default function HubTorneio() {
 
       <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
         {!autenticado ? (
-          <form onSubmit={handleLogin} className={styles.loginBox}><h2 style={{ color: '#ef4444', marginBottom: '10px' }}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
+          <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
         ) : (
           <div>
             {jogoAtual ? (
               <div className={styles.card}>
-                <h2 style={{ color: '#10b981', textAlign: 'center' }}>Jogo em Andamento - {jogoAtual.horario}</h2>
+                <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
                 {isMelhorDe3Shared && (
-                  <div style={{ textAlign: 'center' }}><h3 style={{ color: '#10b981' }}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span style={{ backgroundColor: '#ef4444', color: 'white', padding: '4px 12px', borderRadius: '4px', fontWeight: 'bold' }}>TIE-BREAK</span>}</div>
+                  <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
                 )}
                 <div className={styles.scoreBoard}>
                   <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', 1)}>+</button></div></div>
-                  <h2 style={{ fontSize: '40px', color: '#475569' }}>X</h2>
+                  <h2 className={styles.adminVsText}>X</h2>
                   <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
                 </div>
                 <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
               </div>
             ) : proximoJogo ? (
-              <div className={styles.card} style={{ textAlign: 'center' }}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 style={{ margin: '20px 0' }}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
             ) : statusTorneio === 'fase_grupos' ? (
-              <div className={styles.card} style={{ textAlign: 'center' }}>
+              <div className={`${styles.card} ${styles.textCenter}`}>
                 <h2>Fase de Grupos Encerrada!</h2>
                 {regras?.sistemaClassificacao === 'vitorias_simples' ? (
                   <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
@@ -384,14 +383,14 @@ export default function HubTorneio() {
                 )}
               </div>
             ) : statusTorneio === 'semifinais' ? (
-              <div className={styles.card} style={{ textAlign: 'center' }}><h2>Semifinais Encerradas!</h2><button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={gerarFinais}>Gerar Final</button></div>
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
             ) : statusTorneio === 'finais' ? (
-              <div className={styles.card} style={{ textAlign: 'center' }}><h2>Torneio Finalizado! 🏆</h2></div>
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
             ) : null}
             
             <div className={styles.dangerZone}>
-              <h3 style={{ color: '#ef4444', margin: 0 }}>Gerar Relatório e Encerrar</h3>
-              <p style={{ margin: '5px 0 15px', fontSize: '14px' }}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
+              <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
+              <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
               <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
                 🖨️ Salvar PDF e Excluir Torneio
               </button>
