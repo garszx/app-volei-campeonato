@@ -10,7 +10,7 @@ import styles from './tabela.module.css';
 interface Time { id: string; nome: string; escudoUrl: string; }
 interface TimeDb { id: string; nome: string; escudoUrl: string; sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
 interface Partida { id: string; fase: string; horario: string; status: string; pontosA: number; pontosB: number; setsVencidosA?: number; setsVencidosB?: number; timeA: Time; timeB: Time; }
-interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; turno: string; }
+interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; turno: string; senhaAdmin?: string; }
 
 export default function HubTorneio() {
   const router = useRouter();
@@ -26,6 +26,13 @@ export default function HubTorneio() {
   const [senha, setSenha] = useState('');
   const [autenticado, setAutenticado] = useState(false);
   const [timesMap, setTimesMap] = useState<Record<string, TimeDb>>({});
+
+  // Estados para Edição de Partida
+  const [partidaEditando, setPartidaEditando] = useState<string | null>(null);
+  const [editPontosA, setEditPontosA] = useState(0);
+  const [editPontosB, setEditPontosB] = useState(0);
+  const [editSetsA, setEditSetsA] = useState(0);
+  const [editSetsB, setEditSetsB] = useState(0);
 
   useEffect(() => {
     if (!torneioId) return;
@@ -56,7 +63,12 @@ export default function HubTorneio() {
     return () => unsubscribe();
   }, [torneioId]);
 
-  const handleLogin = (e: FormEvent) => { e.preventDefault(); if (senha === 'volei2026') setAutenticado(true); else alert('Senha incorreta! Acesso negado.'); };
+  const handleLogin = (e: FormEvent) => { 
+    e.preventDefault(); 
+    const senhaCorreta = regras?.senhaAdmin || 'volei2026';
+    if (senha === senhaCorreta) setAutenticado(true); 
+    else alert('Senha incorreta! Acesso negado.'); 
+  };
   
   const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
   
@@ -67,6 +79,79 @@ export default function HubTorneio() {
     let novoValor = jogo[campo] + valor;
     if (novoValor < 0) novoValor = 0;
     await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { [campo]: novoValor });
+  };
+
+  const recalcularTabela = async (partidasAtualizadas: Partida[]) => {
+    const timesTemp = JSON.parse(JSON.stringify(timesMap)) as Record<string, TimeDb>;
+    
+    // Zera os pontos de todos os times para recalcular
+    Object.keys(timesTemp).forEach(k => {
+      timesTemp[k].total_pontos = 0;
+      timesTemp[k].sets_vencidos = 0;
+      timesTemp[k].pontos_classificacao = 0;
+    });
+
+    const isMd3Grupos = regras?.formatoGrupos?.includes('melhor_de_3');
+
+    partidasAtualizadas.forEach(p => {
+      if (p.fase === 'grupos' && p.status === 'finalizado') {
+        const tA = timesTemp[p.timeA.id];
+        const tB = timesTemp[p.timeB.id];
+        if (!tA || !tB) return;
+
+        tA.total_pontos += p.pontosA;
+        tB.total_pontos += p.pontosB;
+
+        const venceuA = p.pontosA > p.pontosB;
+        const venceuB = p.pontosB > p.pontosA;
+
+        let setsA = p.setsVencidosA || 0;
+        let setsB = p.setsVencidosB || 0;
+
+        if (!isMd3Grupos) {
+          setsA = venceuA ? 1 : 0;
+          setsB = venceuB ? 1 : 0;
+        }
+
+        tA.sets_vencidos += setsA;
+        tB.sets_vencidos += setsB;
+
+        if (regras?.sistemaClassificacao === 'sistema_pontos') {
+          if (isMd3Grupos) {
+            if (setsA === 2 && setsB === 0) { tA.pontos_classificacao += 3; }
+            else if (setsB === 2 && setsA === 0) { tB.pontos_classificacao += 3; }
+            else if (setsA === 2 && setsB === 1) { tA.pontos_classificacao += 2; tB.pontos_classificacao += 1; }
+            else if (setsB === 2 && setsA === 1) { tB.pontos_classificacao += 2; tA.pontos_classificacao += 1; }
+          } else {
+            if (venceuA) tA.pontos_classificacao += 3;
+            if (venceuB) tB.pontos_classificacao += 3;
+          }
+        }
+      }
+    });
+
+    await update(ref(db, `torneios/${torneioId}/times`), timesTemp);
+  };
+
+  const abrirEdicao = (p: Partida) => {
+    setPartidaEditando(p.id);
+    setEditPontosA(p.pontosA);
+    setEditPontosB(p.pontosB);
+    setEditSetsA(p.setsVencidosA || 0);
+    setEditSetsB(p.setsVencidosB || 0);
+  };
+
+  const salvarEdicao = async (jogoId: string) => {
+    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), {
+      pontosA: editPontosA,
+      pontosB: editPontosB,
+      setsVencidosA: editSetsA,
+      setsVencidosB: editSetsB
+    });
+    const novasPartidas = partidas.map(p => p.id === jogoId ? { ...p, pontosA: editPontosA, pontosB: editPontosB, setsVencidosA: editSetsA, setsVencidosB: editSetsB } : p);
+    await recalcularTabela(novasPartidas);
+    setPartidaEditando(null);
+    alert("Partida corrigida e tabela de classificação recalculada!");
   };
 
   const encerrarAcao = async (jogo: Partida) => {
@@ -98,8 +183,6 @@ export default function HubTorneio() {
     const updates: Record<string, string | number> = {};
     const vencedorA = jogo.pontosA > jogo.pontosB; 
     const vencedorB = jogo.pontosB > jogo.pontosA;
-    const timeA_db = timesMap[jogo.timeA.id]; 
-    const timeB_db = timesMap[jogo.timeB.id];
 
     if (isMelhorDe3) {
       const novosSetsA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
@@ -109,17 +192,6 @@ export default function HubTorneio() {
         updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
         updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
         updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
-        if (timeA_db && timeB_db && jogo.fase === 'grupos') {
-          let ptsA = 0; let ptsB = 0;
-          if (regras?.sistemaClassificacao === 'sistema_pontos') {
-            if (novosSetsA === 2 && novosSetsB === 0) { ptsA = 3; } else if (novosSetsB === 2 && novosSetsA === 0) { ptsB = 3; }
-            else if (novosSetsA === 2 && novosSetsB === 1) { ptsA = 2; ptsB = 1; } else if (novosSetsB === 2 && novosSetsA === 1) { ptsB = 2; ptsA = 1; }
-          }
-          updates[`torneios/${torneioId}/times/${jogo.timeA.id}/pontos_classificacao`] = (timeA_db.pontos_classificacao || 0) + ptsA;
-          updates[`torneios/${torneioId}/times/${jogo.timeB.id}/pontos_classificacao`] = (timeB_db.pontos_classificacao || 0) + ptsB;
-          updates[`torneios/${torneioId}/times/${jogo.timeA.id}/sets_vencidos`] = (timeA_db.sets_vencidos || 0) + novosSetsA;
-          updates[`torneios/${torneioId}/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + novosSetsB;
-        }
       } else {
         updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosA`] = 0; 
         updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosB`] = 0;
@@ -128,21 +200,22 @@ export default function HubTorneio() {
       }
     } else {
       updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
-      if (timeA_db && timeB_db && jogo.fase === 'grupos') {
-        let ptsA = 0; let ptsB = 0;
-        if (regras?.sistemaClassificacao === 'sistema_pontos') { if (vencedorA) ptsA = 3; if (vencedorB) ptsB = 3; }
-        updates[`torneios/${torneioId}/times/${jogo.timeA.id}/pontos_classificacao`] = (timeA_db.pontos_classificacao || 0) + ptsA;
-        updates[`torneios/${torneioId}/times/${jogo.timeB.id}/pontos_classificacao`] = (timeB_db.pontos_classificacao || 0) + ptsB;
-        updates[`torneios/${torneioId}/times/${jogo.timeA.id}/sets_vencidos`] = (timeA_db.sets_vencidos || 0) + (vencedorA ? 1 : 0);
-        updates[`torneios/${torneioId}/times/${jogo.timeB.id}/sets_vencidos`] = (timeB_db.sets_vencidos || 0) + (vencedorB ? 1 : 0);
-      }
     }
     
-    if (timeA_db && timeB_db && jogo.fase === 'grupos') {
-        updates[`torneios/${torneioId}/times/${jogo.timeA.id}/total_pontos`] = (timeA_db.total_pontos || 0) + jogo.pontosA;
-        updates[`torneios/${torneioId}/times/${jogo.timeB.id}/total_pontos`] = (timeB_db.total_pontos || 0) + jogo.pontosB;
-    }
     await update(ref(db), updates);
+    
+    // Motor de recalculo
+    const matchParaRecalculo = { ...jogo, status: 'finalizado', pontosA: jogo.pontosA, pontosB: jogo.pontosB };
+    if (isMelhorDe3) {
+      matchParaRecalculo.setsVencidosA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
+      matchParaRecalculo.setsVencidosB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0);
+    }
+    
+    const isFimDePartida = !isMelhorDe3 || matchParaRecalculo.setsVencidosA === 2 || matchParaRecalculo.setsVencidosB === 2;
+    if (isFimDePartida) {
+      const novasPartidas = partidas.map(p => p.id === jogo.id ? matchParaRecalculo : p);
+      await recalcularTabela(novasPartidas);
+    }
   };
 
   const gerarSemifinais = async () => {
@@ -359,55 +432,103 @@ export default function HubTorneio() {
     </div>
   );
 
-  const renderAbaAdmin = () => (
-    <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
-      {!autenticado ? (
-        <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
-      ) : (
-        <div>
-          {jogoAtual ? (
-            <div className={styles.card}>
-              <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
-              {isMelhorDe3Shared && (
-                <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
-              )}
-              <div className={styles.scoreBoard}>
-                <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', 1)}>+</button></div></div>
-                <h2 className={styles.adminVsText}>X</h2>
-                <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
+  const renderAbaAdmin = () => {
+    const isMd3Geral = regras?.formatoGrupos?.includes('melhor_de_3') || regras?.formatoFinais?.includes('melhor_de_3');
+    
+    return (
+      <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
+        {!autenticado ? (
+          <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
+        ) : (
+          <div>
+            {/* PAINEL DO JOGO ATUAL */}
+            {jogoAtual ? (
+              <div className={styles.card}>
+                <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
+                {isMelhorDe3Shared && (
+                  <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
+                )}
+                <div className={styles.scoreBoard}>
+                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', 1)}>+</button></div></div>
+                  <h2 className={styles.adminVsText}>X</h2>
+                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
+                </div>
+                <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
               </div>
-              <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
+            ) : proximoJogo ? (
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
+            ) : statusTorneio === 'fase_grupos' ? (
+              <div className={`${styles.card} ${styles.textCenter}`}>
+                <h2>Fase de Grupos Encerrada!</h2>
+                {regras?.sistemaClassificacao === 'vitorias_simples' ? (
+                  <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
+                ) : timesBase.length === 3 ? (
+                  <button className={styles.btnPrimary} onClick={gerarFinalDireta}>Gerar Grande Final Direta</button>
+                ) : (
+                  <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
+                )}
+              </div>
+            ) : statusTorneio === 'semifinais' ? (
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
+            ) : statusTorneio === 'finais' ? (
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
+            ) : null}
+
+            {/* MODO DE EDIÇÃO DE PARTIDAS FINALIZADAS */}
+            {partidas.some(p => p.status === 'finalizado') && (
+              <div className={styles.card} style={{ marginTop: '20px' }}>
+                <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>✏️ Editar Partidas Finalizadas</h3>
+                <p style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', marginBottom: '20px' }}>Qualquer edição recalculará automaticamente a tabela de classificação.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {partidas.filter(p => p.status === 'finalizado').map(p => (
+                    <div key={p.id} style={{ border: '1px solid #334155', padding: '10px', borderRadius: '8px', background: '#0f172a' }}>
+                      {partidaEditando === p.id ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className={styles.textCenter} style={{ flex: 1 }}>
+                              <p className={styles.boldText}>{p.timeA.nome}</p>
+                              <label style={{ fontSize: '12px', color: '#94a3b8' }}>Pontos</label><br/>
+                              <input type="number" value={editPontosA} onChange={e => setEditPontosA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
+                              {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsA} onChange={e => setEditSetsA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} /></>}
+                            </div>
+                            <span style={{ fontWeight: 'bold', color: '#475569' }}>X</span>
+                            <div className={styles.textCenter} style={{ flex: 1 }}>
+                              <p className={styles.boldText}>{p.timeB.nome}</p>
+                              <label style={{ fontSize: '12px', color: '#94a3b8' }}>Pontos</label><br/>
+                              <input type="number" value={editPontosB} onChange={e => setEditPontosB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
+                              {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsB} onChange={e => setEditSetsB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} /></>}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
+                            <button onClick={() => setPartidaEditando(null)} style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
+                            <button onClick={() => salvarEdicao(p.id)} style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Correção</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '14px', color: '#94a3b8' }}>Jogo {p.id.split('_')[1]}</span>
+                          <span className={styles.boldText}>{p.timeA.nome} {p.pontosA} x {p.pontosB} {p.timeB.nome}</span>
+                          <button onClick={() => abrirEdicao(p)} style={{ padding: '4px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✏️ Editar</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className={styles.dangerZone}>
+              <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
+              <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
+              <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
+                🖨️ Salvar PDF e Excluir Torneio
+              </button>
             </div>
-          ) : proximoJogo ? (
-            <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
-          ) : statusTorneio === 'fase_grupos' ? (
-            <div className={`${styles.card} ${styles.textCenter}`}>
-              <h2>Fase de Grupos Encerrada!</h2>
-              {regras?.sistemaClassificacao === 'vitorias_simples' ? (
-                <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
-              ) : timesBase.length === 3 ? (
-                <button className={styles.btnPrimary} onClick={gerarFinalDireta}>Gerar Grande Final Direta</button>
-              ) : (
-                <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
-              )}
-            </div>
-          ) : statusTorneio === 'semifinais' ? (
-            <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
-          ) : statusTorneio === 'finais' ? (
-            <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
-          ) : null}
-          
-          <div className={styles.dangerZone}>
-            <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
-            <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
-            <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
-              🖨️ Salvar PDF e Excluir Torneio
-            </button>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className={styles.container}>
