@@ -12,6 +12,8 @@ interface TimeDbSave extends TimeConfig { sets_vencidos: number; total_pontos: n
 export default function Setup() {
   const router = useRouter();
   const [linkGerado, setLinkGerado] = useState('');
+  const [erroMsg, setErroMsg] = useState(''); // Novo estado para exibir erros visuais
+
   const [regras, setRegras] = useState({
     nomeCampeonato: 'Torneio de Vôlei',
     mostrarLogos: true,
@@ -26,29 +28,76 @@ export default function Setup() {
     ptsDerrotaTiebreak: 1
   });
 
+  // Começando com 3 times por padrão, já que é o mínimo (Triangular)
   const [times, setTimes] = useState<TimeConfig[]>([
-    { id: 'time_1', nome: '', escudoUrl: '' }, { id: 'time_2', nome: '', escudoUrl: '' },
-    { id: 'time_3', nome: '', escudoUrl: '' }, { id: 'time_4', nome: '', escudoUrl: '' },
+    { id: 'time_1', nome: '', escudoUrl: '' }, 
+    { id: 'time_2', nome: '', escudoUrl: '' },
+    { id: 'time_3', nome: '', escudoUrl: '' }
   ]);
 
-  const handleRegraChange = (campo: string, valor: string | number | boolean) => setRegras(prev => ({ ...prev, [campo]: valor }));
-  const handleTimeChange = (index: number, campo: keyof TimeConfig, valor: string) => { const novos = [...times]; novos[index][campo] = valor; setTimes(novos); };
+  const handleRegraChange = (campo: string, valor: string | number | boolean) => {
+    setRegras(prev => ({ ...prev, [campo]: valor }));
+    setErroMsg(''); // Limpa o erro ao mexer em algo
+  };
+
+  const handleTimeChange = (index: number, campo: keyof TimeConfig, valor: string) => { 
+    const novos = [...times]; 
+    novos[index][campo] = valor; 
+    setTimes(novos); 
+    setErroMsg(''); // Limpa o erro ao digitar o nome
+  };
   
   const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
-    if (file) { const reader = new FileReader(); reader.onloadend = () => handleTimeChange(index, 'escudoUrl', reader.result as string); reader.readAsDataURL(file); } 
+    if (file) { 
+      const reader = new FileReader(); 
+      reader.onloadend = () => handleTimeChange(index, 'escudoUrl', reader.result as string); 
+      reader.readAsDataURL(file); 
+    } 
   };
   
-  const adicionarTime = () => { if (times.length >= 12) { alert("Max 12 equipes."); return; } setTimes([...times, { id: `time_${times.length + 1}`, nome: '', escudoUrl: '' }]); };
-  const removerTime = (index: number) => { if (times.length <= 3) { alert("Min 3 equipes."); return; } setTimes(times.filter((_, i) => i !== index)); };
+  const adicionarTime = () => { 
+    if (times.length >= 12) { setErroMsg("O máximo recomendado é de 12 equipes."); return; } 
+    setTimes([...times, { id: `time_${Date.now()}`, nome: '', escudoUrl: '' }]); 
+  };
+  
+  const removerTime = (index: number) => { 
+    if (times.length <= 3) { setErroMsg("É necessário no mínimo 3 equipes para um triangular."); return; } 
+    setTimes(times.filter((_, i) => i !== index)); 
+  };
 
   const salvarSetup = async () => {
-    if (times.length < 3) { alert('Mínimo de 3 equipes.'); return; }
-    if (regras.mostrarLogos && times.some(t => !t.nome || !t.escudoUrl)) { alert('Preencha nome e brasão das equipes!'); return; }
-    if (!regras.mostrarLogos && times.some(t => !t.nome)) { alert('Preencha o nome das equipes!'); return; }
+    setErroMsg(''); // Reseta a mensagem de erro
 
+    // Validações Rígidas
+    if (times.length < 3) { 
+      setErroMsg('É necessário cadastrar no mínimo 3 equipes.'); 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return; 
+    }
+
+    const algumTimeSemNome = times.some(t => t.nome.trim() === '');
+    if (algumTimeSemNome) { 
+      setErroMsg('Todos os times precisam ter um NOME preenchido.'); 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return; 
+    }
+
+    if (regras.mostrarLogos) {
+      const algumTimeSemLogo = times.some(t => t.escudoUrl === '');
+      if (algumTimeSemLogo) {
+        setErroMsg('Você escolheu "Mostrar Logos", portanto TODOS os times precisam de uma imagem/brasão.'); 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
+    // Preparando dados para salvar
     const timesObj: Record<string, TimeDbSave> = {};
-    times.forEach((t, i) => { const id = `time_${i + 1}`; timesObj[id] = { ...t, id, sets_vencidos: 0, total_pontos: 0, pontos_classificacao: 0 }; });
+    times.forEach((t, i) => { 
+      const idLimpo = `time_${i + 1}`; // Força IDs limpos em sequência, ignorando remoções antigas
+      timesObj[idLimpo] = { id: idLimpo, nome: t.nome, escudoUrl: t.escudoUrl, sets_vencidos: 0, total_pontos: 0, pontos_classificacao: 0 }; 
+    });
 
     const slug = regras.nomeCampeonato.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const codigoAleatorio = Math.random().toString(36).substring(2, 7);
@@ -59,7 +108,7 @@ export default function Setup() {
       const urlCompleta = `${window.location.origin}/torneio/${torneioId}`;
       setLinkGerado(urlCompleta);
     } catch { 
-      alert('Erro ao salvar os dados no banco.'); 
+      setErroMsg('Ocorreu um erro ao conectar com o banco de dados. Tente novamente.'); 
     }
   };
 
@@ -85,6 +134,14 @@ export default function Setup() {
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Criar Novo Campeonato</h1>
+      
+      {/* EXIBE ERROS VISUAIS CASO A VALIDAÇÃO FALHE */}
+      {erroMsg && (
+        <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '15px', borderRadius: '8px', marginBottom: '20px', textAlign: 'center', fontWeight: 'bold' }}>
+          ⚠️ {erroMsg}
+        </div>
+      )}
+
       <div className={styles.configPanel}>
         <h2 className={styles.configTitle}>Regras e Formato</h2>
         <div className={styles.configGrid}>
@@ -101,18 +158,42 @@ export default function Setup() {
           <div className={styles.configItem}><label>Logos/Brasões</label><select className={styles.select} value={regras.mostrarLogos ? 'sim' : 'nao'} onChange={(e) => handleRegraChange('mostrarLogos', e.target.value === 'sim')}><option value="sim">Mostrar logos</option><option value="nao">Ocultar logos</option></select></div>
         </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}><h2 className={styles.title} style={{ margin: 0 }}>Equipes ({times.length})</h2><button onClick={adicionarTime} style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>+ Adicionar Equipe</button></div>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 className={styles.title} style={{ margin: 0 }}>Equipes ({times.length})</h2>
+        <button onClick={adicionarTime} style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>+ Adicionar Equipe</button>
+      </div>
+
       <div className={styles.grid}>
         {times.map((time, index) => (
-          <div key={index} className={styles.card} style={{ position: 'relative' }}>
-            {times.length > 3 && <button onClick={() => removerTime(index)} style={{ position: 'absolute', top: '10px', right: '10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>}
+          <div key={time.id} className={styles.card} style={{ position: 'relative' }}>
+            {times.length > 3 && (
+              <button 
+                onClick={() => removerTime(index)} 
+                style={{ position: 'absolute', top: '10px', right: '10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer', fontWeight: 'bold' }}
+                title="Remover Equipe"
+              >
+                ✕
+              </button>
+            )}
             <h3>Time {index + 1}</h3>
-            <div className={styles.configItem}><label>Nome:</label><input type="text" className={styles.input} value={time.nome} onChange={(e) => handleTimeChange(index, 'nome', e.target.value)} /></div>
-            {regras.mostrarLogos && <div className={styles.configItem}><label>Logo:</label><input type="file" accept="image/*" className={styles.input} onChange={(e) => handleImageUpload(index, e)} /></div>}
+            <div className={styles.configItem}>
+              <label>Nome:</label>
+              <input type="text" className={styles.input} value={time.nome} onChange={(e) => handleTimeChange(index, 'nome', e.target.value)} placeholder="Nome da equipe" />
+            </div>
+            {regras.mostrarLogos && (
+              <div className={styles.configItem}>
+                <label>Logo:</label>
+                <input type="file" accept="image/*" className={styles.input} onChange={(e) => handleImageUpload(index, e)} />
+              </div>
+            )}
           </div>
         ))}
       </div>
-      <button onClick={salvarSetup} className={styles.btnPrimary} style={{ marginTop: '20px' }}>Criar Campeonato Exclusivo</button>
+
+      <button onClick={salvarSetup} className={styles.btnPrimary} style={{ marginTop: '20px', padding: '20px', fontSize: '20px' }}>
+        Criar Campeonato Exclusivo
+      </button>
     </div>
   );
 }
