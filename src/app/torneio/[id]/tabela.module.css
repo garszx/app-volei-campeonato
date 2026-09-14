@@ -325,6 +325,68 @@
   display: none;
 }
 
+/* =========================================
+   CORREÇÕES DE LAYOUT PARA CELULAR
+   ========================================= */
+@media (max-width: 768px) {
+  /* 1. Tabela de Jogos: Impede a quebra de linha do placar */
+  .confronto {
+    flex-wrap: nowrap !important;
+  }
+  .time {
+    flex: 1 !important;
+    min-width: 0 !important; /* Permite cortar nomes muito longos */
+  }
+  .time span {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block;
+    font-size: 0.95rem !important;
+  }
+  .placarCentral {
+    flex-shrink: 0 !important;
+    min-width: 90px !important; /* Garante o espaço no meio */
+  }
+  .placarNumeros {
+    white-space: nowrap !important; /* Proíbe o texto de pular linha */
+    font-size: 1.6rem !important;
+  }
+
+  /* 2. Telão Ao Vivo: Força o modo lado-a-lado com fontes ajustadas */
+  .placarLive {
+    flex-direction: row !important; /* Força ficar lado a lado */
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 20px 10px !important;
+  }
+  .timeCol {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .pontuacao {
+    font-size: 4.5rem !important; /* Reduz o tamanho do placar gigante */
+    line-height: 1 !important;
+  }
+  .timeNomeLive {
+    font-size: 1.2rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-bottom: 10px !important;
+  }
+  .vsCard {
+    margin: 0 !important;
+    padding: 5px 10px !important;
+    font-size: 1.2rem !important;
+  }
+  .escudoLive {
+    width: 60px !important;
+    height: 60px !important;
+  }
+}
+
 @media print {
   body {
     background: white !important;
