@@ -57,6 +57,7 @@ export default function HubTorneio() {
   }, [torneioId]);
 
   const handleLogin = (e: FormEvent) => { e.preventDefault(); if (senha === 'volei2026') setAutenticado(true); else alert('Senha incorreta! Acesso negado.'); };
+  
   const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
@@ -75,12 +76,8 @@ export default function HubTorneio() {
     const isTieBreak = isMelhorDe3 && jogo.setsVencidosA === 1 && jogo.setsVencidosB === 1;
     const pontosNecessarios = isTieBreak ? 15 : pontosBase;
     
-    if (jogo.pontosA === jogo.pontosB) {
-      alert("O set não pode terminar empatado!");
-      return;
-    }
+    if (jogo.pontosA === jogo.pontosB) { alert("O set não pode terminar empatado!"); return; }
 
-    // LÓGICA OFICIAL DE VALIDAÇÃO DE PONTOS DO VÔLEI
     const pontosVencedor = Math.max(jogo.pontosA, jogo.pontosB);
     const pontosPerdedor = Math.min(jogo.pontosA, jogo.pontosB);
     const pontosExatosParaVencer = Math.max(pontosNecessarios, pontosPerdedor + 2);
@@ -95,9 +92,7 @@ export default function HubTorneio() {
       if (pontosVencedor >= pontosNecessarios && (pontosVencedor - pontosPerdedor) < 2) {
          aviso = `Pela regra oficial, é obrigatório ter 2 pontos de diferença para fechar o set. O placar atual está ${jogo.pontosA}x${jogo.pontosB} (O alvo correto seria ${pontosExatosParaVencer}).`;
       }
-      if (!confirm(`${aviso}\n\nDeseja forçar o encerramento mesmo assim (ex: o tempo da quadra de aluguel acabou)?`)) {
-        return;
-      }
+      if (!confirm(`${aviso}\n\nDeseja forçar o encerramento mesmo assim?`)) return;
     }
 
     const updates: Record<string, string | number> = {};
@@ -147,7 +142,6 @@ export default function HubTorneio() {
         updates[`torneios/${torneioId}/times/${jogo.timeA.id}/total_pontos`] = (timeA_db.total_pontos || 0) + jogo.pontosA;
         updates[`torneios/${torneioId}/times/${jogo.timeB.id}/total_pontos`] = (timeB_db.total_pontos || 0) + jogo.pontosB;
     }
-    
     await update(ref(db), updates);
   };
 
@@ -255,157 +249,173 @@ export default function HubTorneio() {
     await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
   };
 
-  const jogoAtual = partidas.find(p => p.status === 'em_andamento'); const proximoJogo = partidas.find(p => p.status === 'pendente');
+  const jogoAtual = partidas.find(p => p.status === 'em_andamento'); 
+  const proximoJogo = partidas.find(p => p.status === 'pendente');
   const formatoPartidaAtual = jogoAtual?.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
   const isMelhorDe3Shared = formatoPartidaAtual?.includes('melhor_de_3');
   const isTieBreakShared = isMelhorDe3Shared && jogoAtual?.setsVencidosA === 1 && jogoAtual?.setsVencidosB === 1;
 
+  const renderHeader = () => (
+    <div className={styles.header}>
+      <h1 className={styles.title}>{regras?.nomeCampeonato || 'Carregando...'}</h1>
+      <div className={`${styles.tabs} no-print`}>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('jogos')}>Tabela de Jogos</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('classificacao')}>Classificação</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'live' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('live')}>Telão Ao Vivo</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => setAbaAtiva('admin')}>⚙️ Mesa</button>
+      </div>
+      {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
+        <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Tabela Dinâmica</button>
+      )}
+    </div>
+  );
+
+  const renderAbaJogos = () => (
+    <div className={`${abaAtiva === 'jogos' ? '' : styles.hideOnScreen} ${styles.showOnPrint}`}>
+      <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
+      <div className={styles.listaJogos}>
+        {partidas.map((jogo) => {
+          const num = jogo.id.split('_')[1];
+          let classeStatus = styles.statusPendente; let textoStatus = 'Aguardando';
+          if (jogo.status === 'em_andamento') { classeStatus = styles.statusAndamento; textoStatus = 'Ao Vivo'; }
+          if (jogo.status === 'finalizado') { classeStatus = styles.statusFinalizado; textoStatus = 'Finalizado'; }
+          const isMd3 = (jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
+
+          return (
+            <div key={jogo.id} className={styles.cardJogo}>
+              <div className={styles.cardTop}>
+                <span className={styles.jogoNumero}>{jogo.fase === 'final' ? '🏆 GRANDE FINAL' : jogo.fase === 'terceiro_lugar' ? '🥉 Disputa 3º' : jogo.fase === 'semifinal' ? `Semifinal` : `Jogo ${num}`}</span>
+                <span className={styles.horario}>{jogo.horario}</span>
+              </div>
+              <div className={styles.confronto}>
+                <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
+                <div className={styles.placarCentral}>
+                  {isMd3 && jogo.status !== 'pendente' && <span className={styles.setsLabel}>Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}</span>}
+                  <span className={styles.placarNumeros}>{jogo.status === 'pendente' ? 'X' : `${jogo.pontosA} - ${jogo.pontosB}`}</span>
+                  <span className={`${styles.statusTag} ${classeStatus}`}>{textoStatus}</span>
+                </div>
+                <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeB.escudoUrl} alt="B" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeB.nome}</span></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderAbaClassificacao = () => (
+    <div className={`${abaAtiva === 'classificacao' ? '' : styles.hideOnScreen} ${styles.showOnPrint} ${styles.printPageBreak}`}>
+      <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Classificação Final</h2>
+      <div className={styles.tableWrapper}>
+        <div className={styles.tableContainer}>
+          <table className={styles.tableClassificacao}>
+            <thead>
+              <tr>
+                <th>Pos</th><th className={styles.textLeft}>Time</th>
+                {regras?.sistemaClassificacao === 'sistema_pontos' && <th>Pts</th>}
+                <th>Vitórias (Sets)</th><th>Saldo de Pontos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timesClassificacao.map((time, index) => (
+                <tr key={time.id}>
+                  <td className={styles.rank}>{index + 1}º</td>
+                  <td><div className={styles.teamCell}>{regras?.mostrarLogos && <Image src={time.escudoUrl} alt="Escudo" width={35} height={35} className={`${styles.escudo} ${styles.imageContain}`} />} {time.nome}</div></td>
+                  {regras?.sistemaClassificacao === 'sistema_pontos' && <td className={styles.pontosClassificacao}>{time.pontos_classificacao || 0}</td>}
+                  <td className={styles.vitorias}>{time.sets_vencidos || 0}</td><td className={styles.boldText}>{time.total_pontos || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAbaLive = () => (
+    <div className={`${abaAtiva === 'live' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
+      <div className={styles.liveContainer}>
+        {jogoAtual ? (
+          <>
+            <div className={styles.headerLive}><span className={styles.liveBadge}>AO VIVO</span> <span className={styles.horarioBadge}>{jogoAtual.horario}</span></div>
+            {isMelhorDe3Shared && <div className={styles.setsInfo}>Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong></div>}
+            <div className={styles.placarLive}>
+              <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeA.escudoUrl} alt="A" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeA.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosA}</span></div>
+              <div className={styles.vsCard}><span className={styles.vsText}>X</span></div>
+              <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeB.escudoUrl} alt="B" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeB.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosB}</span></div>
+            </div>
+          </>
+        ) : proximoJogo ? (
+            <div className={styles.mensagemEspera}>
+            <h2 className={styles.nextGameTitle}>Próxima Partida - {proximoJogo.horario}</h2>
+            <div className={styles.nextGameContainer}>
+                <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeA.nome}</p></div>
+                <span className={styles.vsText}>X</span>
+                <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeB.nome}</p></div>
+            </div>
+          </div>
+        ) : (<div className={styles.mensagemEspera}><h2>Torneio Finalizado! 🏆</h2></div>)}
+      </div>
+    </div>
+  );
+
+  const renderAbaAdmin = () => (
+    <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
+      {!autenticado ? (
+        <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
+      ) : (
+        <div>
+          {jogoAtual ? (
+            <div className={styles.card}>
+              <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
+              {isMelhorDe3Shared && (
+                <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
+              )}
+              <div className={styles.scoreBoard}>
+                <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', 1)}>+</button></div></div>
+                <h2 className={styles.adminVsText}>X</h2>
+                <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
+              </div>
+              <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
+            </div>
+          ) : proximoJogo ? (
+            <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
+          ) : statusTorneio === 'fase_grupos' ? (
+            <div className={`${styles.card} ${styles.textCenter}`}>
+              <h2>Fase de Grupos Encerrada!</h2>
+              {regras?.sistemaClassificacao === 'vitorias_simples' ? (
+                <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
+              ) : timesBase.length === 3 ? (
+                <button className={styles.btnPrimary} onClick={gerarFinalDireta}>Gerar Grande Final Direta</button>
+              ) : (
+                <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
+              )}
+            </div>
+          ) : statusTorneio === 'semifinais' ? (
+            <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
+          ) : statusTorneio === 'finais' ? (
+            <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
+          ) : null}
+          
+          <div className={styles.dangerZone}>
+            <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
+            <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
+            <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
+              🖨️ Salvar PDF e Excluir Torneio
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>{regras?.nomeCampeonato || 'Carregando...'}</h1>
-        
-        <div className={`${styles.tabs} no-print`}>
-          <button className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('jogos')}>Tabela de Jogos</button>
-          <button className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('classificacao')}>Classificação</button>
-          <button className={`${styles.tabBtn} ${abaAtiva === 'live' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('live')}>Telão Ao Vivo</button>
-          <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnActive : ''} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => setAbaAtiva('admin')}>⚙️ Mesa</button>
-        </div>
-        {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
-          <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Tabela Dinâmica</button>
-        )}
-      </div>
-
-      <div className={`${abaAtiva === 'jogos' ? '' : styles.hideOnScreen} ${styles.showOnPrint}`}>
-        <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
-        <div className={styles.listaJogos}>
-          {partidas.map((jogo) => {
-            const num = jogo.id.split('_')[1];
-            let classeStatus = styles.statusPendente; let textoStatus = 'Aguardando';
-            if (jogo.status === 'em_andamento') { classeStatus = styles.statusAndamento; textoStatus = 'Ao Vivo'; }
-            if (jogo.status === 'finalizado') { classeStatus = styles.statusFinalizado; textoStatus = 'Finalizado'; }
-            const isMd3 = (jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
-
-            return (
-              <div key={jogo.id} className={styles.cardJogo}>
-                <div className={styles.cardTop}>
-                  <span className={styles.jogoNumero}>{jogo.fase === 'final' ? '🏆 GRANDE FINAL' : jogo.fase === 'terceiro_lugar' ? '🥉 Disputa 3º' : jogo.fase === 'semifinal' ? `Semifinal` : `Jogo ${num}`}</span>
-                  <span className={styles.horario}>{jogo.horario}</span>
-                </div>
-                <div className={styles.confronto}>
-                  <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
-                  <div className={styles.placarCentral}>
-                    {isMd3 && jogo.status !== 'pendente' && <span className={styles.setsLabel}>Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}</span>}
-                    <span className={styles.placarNumeros}>{jogo.status === 'pendente' ? 'X' : `${jogo.pontosA} - ${jogo.pontosB}`}</span>
-                    <span className={`${styles.statusTag} ${classeStatus}`}>{textoStatus}</span>
-                  </div>
-                  <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeB.escudoUrl} alt="B" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeB.nome}</span></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className={`${abaAtiva === 'classificacao' ? '' : styles.hideOnScreen} ${styles.showOnPrint} ${styles.printPageBreak}`}>
-        <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Classificação Final</h2>
-        <div className={styles.tableWrapper}>
-          <div className={styles.tableContainer}>
-            <table className={styles.tableClassificacao}>
-              <thead>
-                <tr>
-                  <th>Pos</th><th className={styles.textLeft}>Time</th>
-                  {regras?.sistemaClassificacao === 'sistema_pontos' && <th>Pts</th>}
-                  <th>Vitórias (Sets)</th><th>Saldo de Pontos</th>
-                </tr>
-              </thead>
-              <tbody>
-                {timesClassificacao.map((time, index) => (
-                  <tr key={time.id}>
-                    <td className={styles.rank}>{index + 1}º</td>
-                    <td><div className={styles.teamCell}>{regras?.mostrarLogos && <Image src={time.escudoUrl} alt="Escudo" width={35} height={35} className={`${styles.escudo} ${styles.imageContain}`} />} {time.nome}</div></td>
-                    {regras?.sistemaClassificacao === 'sistema_pontos' && <td className={styles.pontosClassificacao}>{time.pontos_classificacao || 0}</td>}
-                    <td className={styles.vitorias}>{time.sets_vencidos || 0}</td><td className={styles.boldText}>{time.total_pontos || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div className={`${abaAtiva === 'live' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
-        <div className={styles.liveContainer}>
-          {jogoAtual ? (
-            <>
-              <div className={styles.headerLive}><span className={styles.liveBadge}>AO VIVO</span> <span className={styles.horarioBadge}>{jogoAtual.horario}</span></div>
-              {isMelhorDe3Shared && <div className={styles.setsInfo}>Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong></div>}
-              <div className={styles.placarLive}>
-                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeA.escudoUrl} alt="A" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeA.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosA}</span></div>
-                <div className={styles.vsCard}><span className={styles.vsText}>X</span></div>
-                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeB.escudoUrl} alt="B" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeB.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosB}</span></div>
-              </div>
-            </>
-          ) : proximoJogo ? (
-             <div className={styles.mensagemEspera}>
-              <h2 className={styles.nextGameTitle}>Próxima Partida - {proximoJogo.horario}</h2>
-              <div className={styles.nextGameContainer}>
-                 <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeA.nome}</p></div>
-                 <span className={styles.vsText}>X</span>
-                 <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeB.nome}</p></div>
-              </div>
-            </div>
-          ) : (<div className={styles.mensagemEspera}><h2>Torneio Finalizado! 🏆</h2></div>)}
-        </div>
-      </div>
-
-      <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
-        {!autenticado ? (
-          <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
-        ) : (
-          <div>
-            {jogoAtual ? (
-              <div className={styles.card}>
-                <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
-                {isMelhorDe3Shared && (
-                  <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
-                )}
-                <div className={styles.scoreBoard}>
-                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', 1)}>+</button></div></div>
-                  <h2 className={styles.adminVsText}>X</h2>
-                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
-                </div>
-                <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
-              </div>
-            ) : proximoJogo ? (
-              <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
-            ) : statusTorneio === 'fase_grupos' ? (
-              <div className={`${styles.card} ${styles.textCenter}`}>
-                <h2>Fase de Grupos Encerrada!</h2>
-                {regras?.sistemaClassificacao === 'vitorias_simples' ? (
-                  <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
-                ) : timesBase.length === 3 ? (
-                  <button className={styles.btnPrimary} onClick={gerarFinalDireta}>Gerar Grande Final Direta</button>
-                ) : (
-                  <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
-                )}
-              </div>
-            ) : statusTorneio === 'semifinais' ? (
-              <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
-            ) : statusTorneio === 'finais' ? (
-              <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
-            ) : null}
-            
-            <div className={styles.dangerZone}>
-              <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
-              <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
-              <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
-                🖨️ Salvar PDF e Excluir Torneio
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      {renderHeader()}
+      {renderAbaJogos()}
+      {renderAbaClassificacao()}
+      {renderAbaLive()}
+      {renderAbaAdmin()}
     </div>
   );
 }
