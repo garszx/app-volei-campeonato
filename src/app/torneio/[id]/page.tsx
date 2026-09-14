@@ -10,7 +10,7 @@ import styles from './tabela.module.css';
 interface Time { id: string; nome: string; escudoUrl: string; }
 interface TimeDb { id: string; nome: string; escudoUrl: string; sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
 interface Partida { id: string; fase: string; horario: string; status: string; pontosA: number; pontosB: number; setsVencidosA?: number; setsVencidosB?: number; timeA: Time; timeB: Time; }
-interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; }
+interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; turno: string; }
 
 export default function HubTorneio() {
   const router = useRouter();
@@ -123,7 +123,7 @@ export default function HubTorneio() {
 
   const gerarSemifinais = async () => {
     const timesArray = Object.values(timesMap);
-    if (timesArray.length < 4) { alert("Mínimo 4 equipes."); return; }
+    if (timesArray.length < 4) return;
     if (!confirm("Gerar Semifinais?")) return;
     timesArray.sort((a, b) => {
       if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
@@ -132,15 +132,34 @@ export default function HubTorneio() {
     });
     const classificados = timesArray.slice(0, 4);
     const updates: Record<string, string | Partida> = {};
+    const numMatches = partidas.length;
     updates[`torneios/${torneioId}/config/status`] = 'semifinais';
-    updates[`torneios/${torneioId}/partidas/jogo_16`] = { id: 'jogo_16', fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[3] };
-    updates[`torneios/${torneioId}/partidas/jogo_17`] = { id: 'jogo_17', fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[1], timeB: classificados[2] };
+    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[3] };
+    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[1], timeB: classificados[2] };
+    await update(ref(db), updates);
+  };
+
+  const gerarFinalDireta = async () => {
+    const timesArray = Object.values(timesMap);
+    if (!confirm("Gerar a Grande Final entre o 1º e o 2º da tabela?")) return;
+    timesArray.sort((a, b) => {
+      if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
+      if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
+      return (b.total_pontos || 0) - (a.total_pontos || 0);
+    });
+    const classificados = timesArray.slice(0, 2);
+    const updates: Record<string, string | Partida> = {};
+    const numMatches = partidas.length;
+    updates[`torneios/${torneioId}/config/status`] = 'finais';
+    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[1] };
     await update(ref(db), updates);
   };
 
   const gerarFinais = async () => {
     if (!confirm("Gerar Finais?")) return;
-    const semi1 = partidas.find(p => p.id === 'jogo_16'); const semi2 = partidas.find(p => p.id === 'jogo_17');
+    const numMatches = partidas.length;
+    const semi1 = partidas[numMatches - 2];
+    const semi2 = partidas[numMatches - 1];
     if (!semi1 || !semi2) return;
     const isSemi1MelhorDe3 = (semi1.setsVencidosA || 0) === 2 || (semi1.setsVencidosB || 0) === 2;
     const semi1VenceuA = isSemi1MelhorDe3 ? (semi1.setsVencidosA === 2) : (semi1.pontosA > semi1.pontosB);
@@ -150,9 +169,14 @@ export default function HubTorneio() {
     const vencedor17 = semi2VenceuA ? semi2.timeA : semi2.timeB; const perdedor17 = semi2VenceuA ? semi2.timeB : semi2.timeA;
     const updates: Record<string, string | Partida> = {};
     updates[`torneios/${torneioId}/config/status`] = 'finais';
-    updates[`torneios/${torneioId}/partidas/jogo_18`] = { id: 'jogo_18', fase: 'terceiro_lugar', horario: 'DISPUTA 3º', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: perdedor16, timeB: perdedor17 };
-    updates[`torneios/${torneioId}/partidas/jogo_19`] = { id: 'jogo_19', fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: vencedor16, timeB: vencedor17 };
+    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'terceiro_lugar', horario: 'DISPUTA 3º', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: perdedor16, timeB: perdedor17 };
+    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: vencedor16, timeB: vencedor17 };
     await update(ref(db), updates);
+  };
+
+  const encerrarCampeonatoPontosCorridos = async () => {
+    if (!confirm("Tem certeza que deseja encerrar o torneio? O 1º colocado da tabela atual será o campeão!")) return;
+    await update(ref(db, `torneios/${torneioId}/config`), { status: 'finais' });
   };
 
   const gerarRelatorioELimpar = async () => {
@@ -160,13 +184,7 @@ export default function HubTorneio() {
     if (!confirmacao) return;
     window.print();
     setTimeout(async () => {
-      try {
-        await remove(ref(db, `torneios/${torneioId}`));
-        alert("Torneio excluído com sucesso! O sistema foi reciclado e o espaço liberado.");
-        router.push('/setup');
-      } catch { 
-        alert("Erro ao tentar limpar o banco de dados.");
-      }
+      try { await remove(ref(db, `torneios/${torneioId}`)); alert("Torneio excluído com sucesso! O sistema foi reciclado e o espaço liberado."); router.push('/setup'); } catch { alert("Erro ao tentar limpar o banco de dados."); }
     }, 1000);
   };
 
@@ -176,6 +194,7 @@ export default function HubTorneio() {
     for (let i = timesSorteados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; }
     const listaTrabalho = [...timesSorteados];
     if (listaTrabalho.length % 2 !== 0) listaTrabalho.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
+    
     const confrontosGerados: [number, number][] = []; const copiaRotacao = [...listaTrabalho];
     for (let rodada = 0; rodada < listaTrabalho.length - 1; rodada++) {
       for (let i = 0; i < listaTrabalho.length / 2; i++) {
@@ -184,6 +203,15 @@ export default function HubTorneio() {
       }
       const ultimo = copiaRotacao.pop()!; copiaRotacao.splice(1, 0, ultimo);
     }
+
+    // SE FOR "IDA E VOLTA", DUPLICA OS JOGOS INVERTENDO OS TIMES
+    if (regras?.turno === 'ida_volta') {
+      const totalJogos = confrontosGerados.length;
+      for (let i = 0; i < totalJogos; i++) {
+        confrontosGerados.push([confrontosGerados[i][1], confrontosGerados[i][0]]); // B vs A
+      }
+    }
+
     const novasPartidas: Record<string, Partida> = {};
     const [horaStr, minStr] = regras?.horarioInicio.split(':') || ['08', '00'];
     const minutosIniciais = parseInt(horaStr) * 60 + parseInt(minStr);
@@ -324,7 +352,19 @@ export default function HubTorneio() {
             ) : proximoJogo ? (
               <div className={styles.card} style={{ textAlign: 'center' }}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 style={{ margin: '20px 0' }}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
             ) : statusTorneio === 'fase_grupos' ? (
-              <div className={styles.card} style={{ textAlign: 'center' }}><h2>Fase de Grupos Encerrada!</h2><button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button></div>
+              <div className={styles.card} style={{ textAlign: 'center' }}>
+                <h2>Fase de Grupos Encerrada!</h2>
+                
+                {/* LÓGICA INTELIGENTE DOS BOTÕES */}
+                {regras?.sistemaClassificacao === 'vitorias_simples' ? (
+                  <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
+                ) : timesBase.length === 3 ? (
+                  <button className={styles.btnPrimary} onClick={gerarFinalDireta}>Gerar Grande Final Direta</button>
+                ) : (
+                  <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
+                )}
+                
+              </div>
             ) : statusTorneio === 'semifinais' ? (
               <div className={styles.card} style={{ textAlign: 'center' }}><h2>Semifinais Encerradas!</h2><button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={gerarFinais}>Gerar Final</button></div>
             ) : statusTorneio === 'finais' ? (

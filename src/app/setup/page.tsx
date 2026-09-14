@@ -19,6 +19,7 @@ export default function Setup() {
     formatoGrupos: 'set_unico_25',
     formatoFinais: 'melhor_de_3_25',
     sistemaClassificacao: 'vitorias_simples',
+    turno: 'unico', // NOVO CAMPO: unico ou ida_volta
     ptsVitoriaPerfeita: 3,
     ptsVitoriaTiebreak: 2,
     ptsDerrotaTiebreak: 1
@@ -87,11 +88,15 @@ export default function Setup() {
         <h2 className={styles.configTitle}>Regras e Formato</h2>
         <div className={styles.configGrid}>
           <div className={styles.configItem} style={{ gridColumn: '1 / -1' }}><label>Nome do Campeonato</label><input type="text" className={styles.input} value={regras.nomeCampeonato} onChange={(e) => handleRegraChange('nomeCampeonato', e.target.value)} /></div>
-          <div className={styles.configItem}><label>Horário de Início</label><input type="time" className={styles.input} value={regras.horarioInicio} onChange={(e) => handleRegraChange('horarioInicio', e.target.value)} /></div>
+          
+          <div className={styles.configItem}><label>Sistema de Disputa</label><select className={styles.select} value={regras.sistemaClassificacao} onChange={(e) => handleRegraChange('sistemaClassificacao', e.target.value)}><option value="vitorias_simples">Pontos Corridos (Campeão pela Tabela)</option><option value="sistema_pontos">Fase de Grupos + Mata-Mata</option></select></div>
+          <div className={styles.configItem}><label>Formato de Confrontos</label><select className={styles.select} value={regras.turno} onChange={(e) => handleRegraChange('turno', e.target.value)}><option value="unico">Turno Único (1 jogo contra cada)</option><option value="ida_volta">Ida e Volta (2 jogos contra cada)</option></select></div>
+          
+          <div className={styles.configItem}><label>Horário do 1º Jogo</label><input type="time" className={styles.input} value={regras.horarioInicio} onChange={(e) => handleRegraChange('horarioInicio', e.target.value)} /></div>
           <div className={styles.configItem}><label>Intervalo (Minutos)</label><input type="number" className={styles.input} value={regras.intervaloMinutos} onChange={(e) => handleRegraChange('intervaloMinutos', Number(e.target.value))} /></div>
+          
           <div className={styles.configItem}><label>Fase de Grupos</label><select className={styles.select} value={regras.formatoGrupos} onChange={(e) => handleRegraChange('formatoGrupos', e.target.value)}><option value="set_unico_25">Set Único (até 25)</option><option value="set_unico_21">Set Único (até 21)</option><option value="melhor_de_3_25">Melhor de 3 (até 25)</option><option value="melhor_de_3_21">Melhor de 3 (até 21)</option></select></div>
           <div className={styles.configItem}><label>Finais e Semifinais</label><select className={styles.select} value={regras.formatoFinais} onChange={(e) => handleRegraChange('formatoFinais', e.target.value)}><option value="melhor_de_3_25">Melhor de 3 (até 25)</option><option value="melhor_de_3_21">Melhor de 3 (até 21)</option><option value="set_unico_25">Set Único (até 25)</option><option value="set_unico_21">Set Único (até 21)</option></select></div>
-          <div className={styles.configItem}><label>Classificação</label><select className={styles.select} value={regras.sistemaClassificacao} onChange={(e) => handleRegraChange('sistemaClassificacao', e.target.value)}><option value="vitorias_simples">Vitórias Simples (Sem Pts)</option><option value="sistema_pontos">Sistema de Pontos</option></select></div>
           <div className={styles.configItem}><label>Logos/Brasões</label><select className={styles.select} value={regras.mostrarLogos ? 'sim' : 'nao'} onChange={(e) => handleRegraChange('mostrarLogos', e.target.value === 'sim')}><option value="sim">Mostrar logos</option><option value="nao">Ocultar logos</option></select></div>
         </div>
       </div>
