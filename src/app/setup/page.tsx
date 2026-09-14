@@ -7,6 +7,7 @@ import { ref, set } from 'firebase/database';
 import styles from './setup.module.css';
 
 interface TimeConfig { id: string; nome: string; escudoUrl: string; }
+interface TimeDbSave extends TimeConfig { sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
 
 export default function Setup() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function Setup() {
     formatoGrupos: 'set_unico_25',
     formatoFinais: 'melhor_de_3_25',
     sistemaClassificacao: 'vitorias_simples',
-    turno: 'unico', // NOVO CAMPO: unico ou ida_volta
+    turno: 'unico',
     ptsVitoriaPerfeita: 3,
     ptsVitoriaTiebreak: 2,
     ptsDerrotaTiebreak: 1
@@ -46,7 +47,7 @@ export default function Setup() {
     if (regras.mostrarLogos && times.some(t => !t.nome || !t.escudoUrl)) { alert('Preencha nome e brasão das equipes!'); return; }
     if (!regras.mostrarLogos && times.some(t => !t.nome)) { alert('Preencha o nome das equipes!'); return; }
 
-    const timesObj: Record<string, unknown> = {};
+    const timesObj: Record<string, TimeDbSave> = {};
     times.forEach((t, i) => { const id = `time_${i + 1}`; timesObj[id] = { ...t, id, sets_vencidos: 0, total_pontos: 0, pontos_classificacao: 0 }; });
 
     const slug = regras.nomeCampeonato.toLowerCase().replace(/[^a-z0-9]+/g, '-');

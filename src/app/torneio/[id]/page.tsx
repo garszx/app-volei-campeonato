@@ -10,6 +10,7 @@ import styles from './tabela.module.css';
 interface Time { id: string; nome: string; escudoUrl: string; }
 interface TimeDb { id: string; nome: string; escudoUrl: string; sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
 interface Partida { id: string; fase: string; horario: string; status: string; pontosA: number; pontosB: number; setsVencidosA?: number; setsVencidosB?: number; timeA: Time; timeB: Time; }
+// AQUI ESTAVA O ERRO! Adicionamos "turno: string;" no final da linha abaixo:
 interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; turno: string; }
 
 export default function HubTorneio() {
@@ -204,11 +205,10 @@ export default function HubTorneio() {
       const ultimo = copiaRotacao.pop()!; copiaRotacao.splice(1, 0, ultimo);
     }
 
-    // SE FOR "IDA E VOLTA", DUPLICA OS JOGOS INVERTENDO OS TIMES
     if (regras?.turno === 'ida_volta') {
       const totalJogos = confrontosGerados.length;
       for (let i = 0; i < totalJogos; i++) {
-        confrontosGerados.push([confrontosGerados[i][1], confrontosGerados[i][0]]); // B vs A
+        confrontosGerados.push([confrontosGerados[i][1], confrontosGerados[i][0]]);
       }
     }
 
@@ -354,8 +354,6 @@ export default function HubTorneio() {
             ) : statusTorneio === 'fase_grupos' ? (
               <div className={styles.card} style={{ textAlign: 'center' }}>
                 <h2>Fase de Grupos Encerrada!</h2>
-                
-                {/* LÓGICA INTELIGENTE DOS BOTÕES */}
                 {regras?.sistemaClassificacao === 'vitorias_simples' ? (
                   <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
                 ) : timesBase.length === 3 ? (
@@ -363,7 +361,6 @@ export default function HubTorneio() {
                 ) : (
                   <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
                 )}
-                
               </div>
             ) : statusTorneio === 'semifinais' ? (
               <div className={styles.card} style={{ textAlign: 'center' }}><h2>Semifinais Encerradas!</h2><button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={gerarFinais}>Gerar Final</button></div>
