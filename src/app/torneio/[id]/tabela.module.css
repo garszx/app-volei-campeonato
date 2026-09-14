@@ -1,4 +1,3 @@
-/* --- CONTAINER PRINCIPAL --- */
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -21,12 +20,11 @@
   font-weight: 900;
   background: linear-gradient(to right, #38bdf8, #818cf8);
   -webkit-background-clip: text;
-  background-clip: text; /* <-- Adicione esta linha */
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 25px;
 }
 
-/* --- ABAS (MENU ESTILO PÍLULA) --- */
 .tabs {
   display: flex;
   justify-content: center;
@@ -51,6 +49,10 @@
   border-radius: 100px;
   cursor: pointer;
   transition: all 0.3s ease;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tabBtn:hover {
@@ -64,13 +66,11 @@
   box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
 }
 
-/* Deixa a aba da MESA vermelha para dar cara de "Acesso Restrito" */
 .tabBtn:nth-child(4).tabBtnActive { 
   background: #ef4444;
   box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
 }
 
-/* --- ABA 1: TABELA DE JOGOS --- */
 .listaJogos {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -177,12 +177,11 @@
 .statusAndamento { background: #ef4444; color: white; animation: pulsar 2s infinite; }
 .statusFinalizado { background: #10b981; color: white; }
 
-/* --- ABA 2: CLASSIFICAÇÃO GERAL --- */
 .tableWrapper {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 10px; /* Para a barra de rolagem não engolir o texto no celular */
+  padding-bottom: 10px;
 }
 
 .tableContainer {
@@ -193,7 +192,7 @@
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   max-width: 900px;
   margin: 0 auto;
-  min-width: 600px; /* Garante que a tabela não esprema demais no mobile, forçando o scroll horizontal */
+  min-width: 600px;
 }
 
 .tableClassificacao {
@@ -226,7 +225,7 @@
   gap: 15px;
   font-weight: bold;
   font-size: 16px;
-  white-space: nowrap; /* Evita quebra de linha no nome do time para manter alinhado */
+  white-space: nowrap;
 }
 
 .rank { font-weight: 900; font-size: 18px; color: #64748b; }
@@ -234,10 +233,9 @@
 .tableClassificacao tr:nth-child(2) .rank,
 .tableClassificacao tr:nth-child(3) .rank,
 .tableClassificacao tr:nth-child(4) .rank {
-  color: #10b981; /* Destaca o Top 4 em verde */
+  color: #10b981;
 }
 
-/* --- ABA 3: TELÃO AO VIVO --- */
 .liveContainer {
   display: flex;
   flex-direction: column;
@@ -261,7 +259,6 @@
 .vsText { font-size: 40px; color: #475569; font-weight: 900; font-style: italic; }
 .setsInfo { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; padding: 10px 25px; border-radius: 12px; font-size: 20px; font-weight: bold; margin-bottom: 25px; }
 
-/* --- ABA 4: MESA (ADMIN) --- */
 .card {
   background: linear-gradient(145deg, var(--card-bg), #0f172a);
   border: 1px solid var(--card-border);
@@ -276,12 +273,12 @@
 .input { width: 100%; padding: 16px; margin-bottom: 25px; border-radius: 12px; border: 2px solid var(--card-border); background: var(--background); color: var(--foreground); font-size: 18px; text-align: center; outline: none; transition: border-color 0.2s; }
 .input:focus { border-color: #38bdf8; }
 
-.btnPrimary { width: 100%; padding: 16px; background: linear-gradient(to right, #2563eb, #3b82f6); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.btnPrimary { width: 100%; padding: 16px; background: linear-gradient(to right, #2563eb, #3b82f6); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .btnPrimary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3); }
 .btnPrimary:active { transform: translateY(0); }
 
 .btnGerar {
-  display: block; margin: 30px auto; background: linear-gradient(to right, #10b981, #059669); color: white; padding: 15px 30px; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); transition: transform 0.2s;
+  display: block; margin: 30px auto; background: linear-gradient(to right, #10b981, #059669); color: white; padding: 15px 30px; font-size: 18px; font-weight: bold; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3); transition: transform 0.2s; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .btnGerar:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(16, 185, 129, 0.4); }
 
@@ -290,18 +287,24 @@
 .scoreText { font-size: 110px; font-weight: 900; line-height: 1; color: var(--foreground); font-variant-numeric: tabular-nums; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
 
 .controls { display: flex; gap: 20px; }
-.btnScore { width: 75px; height: 75px; border-radius: 50%; border: none; font-size: 40px; font-weight: bold; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, opacity 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
+.btnScore { 
+  width: 75px; height: 75px; border-radius: 50%; border: none; font-size: 40px; font-weight: bold; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, opacity 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
 .btnScore:hover { opacity: 0.9; transform: scale(1.05); }
 .btnScore:active { transform: scale(0.95); }
 .btnMinus { background-color: #ef4444; }
 .btnPlus { background-color: #10b981; }
 
-.btnEnd { background-color: white; color: black; padding: 20px 40px; font-size: 20px; font-weight: 900; border: none; border-radius: 12px; cursor: pointer; width: 100%; max-width: 450px; margin: 20px auto 0; display: block; transition: all 0.2s; box-shadow: 0 8px 25px rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 1px; }
+.btnEnd { background-color: white; color: black; padding: 20px 40px; font-size: 20px; font-weight: 900; border: none; border-radius: 12px; cursor: pointer; width: 100%; max-width: 450px; margin: 20px auto 0; display: block; transition: all 0.2s; box-shadow: 0 8px 25px rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 1px; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .btnEnd:hover { background-color: #e2e8f0; transform: translateY(-2px); }
 .btnEnd:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .dangerZone { margin-top: 60px; padding: 30px; border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 16px; background-color: rgba(239, 68, 68, 0.05); text-align: center; }
-.btnDanger { background-color: #ef4444; color: white; padding: 14px 28px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; transition: background 0.2s; }
+.btnDanger { background-color: #ef4444; color: white; padding: 14px 28px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; transition: background 0.2s; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .btnDanger:hover { background-color: #dc2626; }
 .mensagemEspera { font-size: 24px; color: var(--foreground); background: var(--card-bg); padding: 50px; border-radius: 20px; border: 1px solid var(--card-border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 100%; max-width: 800px; margin: 0 auto; text-align: center; }
 
@@ -314,82 +317,31 @@
 @media (max-width: 768px) {
   .tabs { flex-direction: column; width: 100%; border-radius: 16px; padding: 12px; gap: 10px; }
   .tabBtn { width: 100%; border-radius: 10px; padding: 14px; }
-  .placarLive { flex-direction: column; gap: 40px; padding: 30px 15px; }
-  .scoreBoard { flex-direction: column; gap: 30px; padding: 20px; }
-  .scoreText { font-size: 80px; }
-  .teamColAdmin { width: 100%; }
+  
+  .confronto { flex-wrap: nowrap !important; }
+  .time { flex: 1 !important; min-width: 0 !important; }
+  .time span { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; display: block; font-size: 0.95rem !important; }
+  .placarCentral { flex-shrink: 0 !important; min-width: 90px !important; }
+  .placarNumeros { white-space: nowrap !important; font-size: 1.6rem !important; }
+
+  .placarLive { flex-direction: row !important; justify-content: space-between !important; align-items: center !important; gap: 5px !important; padding: 20px 10px !important; }
+  .timeCol { flex: 1 !important; min-width: 0 !important; }
+  .pontuacao { font-size: 4.5rem !important; line-height: 1 !important; }
+  .timeNomeLive { font-size: 1.2rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; margin-bottom: 10px !important; }
+  .vsCard { margin: 0 !important; padding: 5px 10px !important; font-size: 1.2rem !important; }
+  .escudoLive { width: 60px !important; height: 60px !important; }
+
+  .scoreBoard { display: flex !important; flex-direction: row !important; justify-content: space-between !important; align-items: center !important; gap: 10px !important; margin: 15px 0 !important; padding: 20px !important; }
+  .teamColAdmin { flex: 1 !important; min-width: 0 !important; width: 100% !important; }
+  .teamColAdmin h3 { font-size: 1.1rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; margin-bottom: 10px !important; }
+  .scoreText { font-size: 4rem !important; line-height: 1 !important; margin-bottom: 10px !important; display: block !important; }
+  .controls { display: flex !important; flex-direction: row !important; justify-content: center !important; gap: 10px !important; }
+  .btnScore { width: 45px !important; height: 45px !important; font-size: 24px !important; }
+  .adminVsText { font-size: 24px !important; margin: 0 10px !important; }
+  .btnEnd { width: 100% !important; padding: 15px !important; font-size: 18px !important; margin-top: 20px !important; }
 }
 
-/* --- REGRAS ESPECÍFICAS PARA TELA E IMPRESSÃO (PDF) --- */
-.hideOnScreen {
-  display: none;
-}
-
-/* =========================================
-   CORREÇÕES DE LAYOUT PARA CELULAR
-   ========================================= */
-@media (max-width: 768px) {
-  /* 1. Tabela de Jogos: Impede a quebra de linha do placar */
-  .confronto {
-    flex-wrap: nowrap !important;
-  }
-  .time {
-    flex: 1 !important;
-    min-width: 0 !important; /* Permite cortar nomes muito longos */
-  }
-  .time span {
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    display: block;
-    font-size: 0.95rem !important;
-  }
-  .placarCentral {
-    flex-shrink: 0 !important;
-    min-width: 90px !important; /* Garante o espaço no meio */
-  }
-  .placarNumeros {
-    white-space: nowrap !important; /* Proíbe o texto de pular linha */
-    font-size: 1.6rem !important;
-  }
-
-  /* 2. Telão Ao Vivo: Força o modo lado-a-lado com fontes ajustadas */
-  .placarLive {
-    flex-direction: row !important; /* Força ficar lado a lado */
-    justify-content: space-between !important;
-    align-items: center !important;
-    gap: 5px !important;
-    padding: 20px 10px !important;
-  }
-  .timeCol {
-    flex: 1 !important;
-    min-width: 0 !important;
-  }
-  .pontuacao {
-    font-size: 4.5rem !important; /* Reduz o tamanho do placar gigante */
-    line-height: 1 !important;
-  }
-  .timeNomeLive {
-    font-size: 1.2rem !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    margin-bottom: 10px !important;
-  }
-  .vsCard {
-    margin: 0 !important;
-    padding: 5px 10px !important;
-    font-size: 1.2rem !important;
-  }
-  .escudoLive {
-    width: 60px !important;
-    height: 60px !important;
-  }
-}
-
-/* =========================================
-   CLASSES DE UTILIDADE (REFATORAÇÃO)
-   ========================================= */
+.hideOnScreen { display: none; }
 .textCenter { text-align: center; }
 .textLeft { text-align: left; }
 .boldText { font-weight: bold; }
@@ -415,57 +367,13 @@
 .tabBtnAdminActive { border-bottom-color: #ef4444 !important; color: #ef4444 !important; }
 
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
-  }
-  
-  /* Esconde tudo que não deve sair no PDF */
-  .no-print, .hideOnPrint {
-    display: none !important;
-  }
-  
-  /* Força a exibição dos Jogos e Classificação, mesmo se a pessoa estiver na aba da Mesa */
-  .showOnPrint {
-    display: block !important;
-  }
-  
-  /* Quebra a página para a classificação não ficar grudada na tabela de jogos */
-  .printPageBreak {
-    page-break-before: always;
-    padding-top: 20px;
-  }
-
-  /* Estiliza os títulos escondidos que só aparecem no PDF */
-  .printTitle {
-    display: block !important;
-    color: black !important;
-    text-align: center;
-    font-size: 26px;
-    font-weight: bold;
-    margin-bottom: 25px;
-    -webkit-text-fill-color: black !important;
-  }
-  
-  /* Ajusta as cores para o papel branco */
-  .cardJogo, .tableContainer {
-    box-shadow: none !important;
-    border: 1px solid #ccc !important;
-    break-inside: avoid;
-    background: white !important;
-  }
-  
-  .time span, .placarNumeros, .horario, .jogoNumero {
-    color: black !important;
-  }
-  
-  .tableClassificacao th {
-    background: #f1f5f9 !important;
-    color: black !important;
-  }
-  
-  .tableClassificacao td {
-    color: black !important;
-    border-bottom: 1px solid #ccc !important;
-  }
+  body { background: white !important; color: black !important; }
+  .no-print, .hideOnPrint { display: none !important; }
+  .showOnPrint { display: block !important; }
+  .printPageBreak { page-break-before: always; padding-top: 20px; }
+  .printTitle { display: block !important; color: black !important; text-align: center; font-size: 26px; font-weight: bold; margin-bottom: 25px; -webkit-text-fill-color: black !important; }
+  .cardJogo, .tableContainer { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; background: white !important; }
+  .time span, .placarNumeros, .horario, .jogoNumero { color: black !important; }
+  .tableClassificacao th { background: #f1f5f9 !important; color: black !important; }
+  .tableClassificacao td { color: black !important; border-bottom: 1px solid #ccc !important; }
 }

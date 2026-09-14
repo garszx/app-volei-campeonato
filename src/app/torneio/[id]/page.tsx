@@ -26,8 +26,8 @@ export default function HubTorneio() {
   const [senha, setSenha] = useState('');
   const [autenticado, setAutenticado] = useState(false);
   const [timesMap, setTimesMap] = useState<Record<string, TimeDb>>({});
+  const [isUpdatingScore, setIsUpdatingScore] = useState(false);
 
-  // Estados para Edição de Partida
   const [partidaEditando, setPartidaEditando] = useState<string | null>(null);
   const [editPontosA, setEditPontosA] = useState(0);
   const [editPontosB, setEditPontosB] = useState(0);
@@ -73,18 +73,25 @@ export default function HubTorneio() {
   const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
+    if (isUpdatingScore) return;
+    setIsUpdatingScore(true);
+
     const jogo = partidas.find(p => p.id === id);
-    if (!jogo) return;
+    if (!jogo) {
+      setIsUpdatingScore(false);
+      return;
+    }
     const campo = time === 'A' ? 'pontosA' : 'pontosB';
     let novoValor = jogo[campo] + valor;
     if (novoValor < 0) novoValor = 0;
+    
     await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { [campo]: novoValor });
+    setTimeout(() => setIsUpdatingScore(false), 200);
   };
 
   const recalcularTabela = async (partidasAtualizadas: Partida[]) => {
     const timesTemp = JSON.parse(JSON.stringify(timesMap)) as Record<string, TimeDb>;
     
-    // Zera os pontos de todos os times para recalcular
     Object.keys(timesTemp).forEach(k => {
       timesTemp[k].total_pontos = 0;
       timesTemp[k].sets_vencidos = 0;
@@ -204,7 +211,6 @@ export default function HubTorneio() {
     
     await update(ref(db), updates);
     
-    // Motor de recalculo
     const matchParaRecalculo = { ...jogo, status: 'finalizado', pontosA: jogo.pontosA, pontosB: jogo.pontosB };
     if (isMelhorDe3) {
       matchParaRecalculo.setsVencidosA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
@@ -441,7 +447,6 @@ export default function HubTorneio() {
           <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
         ) : (
           <div>
-            {/* PAINEL DO JOGO ATUAL */}
             {jogoAtual ? (
               <div className={styles.card}>
                 <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
@@ -449,9 +454,9 @@ export default function HubTorneio() {
                   <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
                 )}
                 <div className={styles.scoreBoard}>
-                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'A', 1)}>+</button></div></div>
+                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'A', -1); }}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'A', 1); }}>+</button></div></div>
                   <h2 className={styles.adminVsText}>X</h2>
-                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, 'B', 1)}>+</button></div></div>
+                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'B', -1); }}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'B', 1); }}>+</button></div></div>
                 </div>
                 <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
               </div>
@@ -474,7 +479,6 @@ export default function HubTorneio() {
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
             ) : null}
 
-            {/* MODO DE EDIÇÃO DE PARTIDAS FINALIZADAS */}
             {partidas.some(p => p.status === 'finalizado') && (
               <div className={styles.card} style={{ marginTop: '20px' }}>
                 <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>✏️ Editar Partidas Finalizadas</h3>
