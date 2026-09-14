@@ -75,21 +75,29 @@ export default function HubTorneio() {
     const isTieBreak = isMelhorDe3 && jogo.setsVencidosA === 1 && jogo.setsVencidosB === 1;
     const pontosNecessarios = isTieBreak ? 15 : pontosBase;
     
-    const diferencaPontos = Math.abs(jogo.pontosA - jogo.pontosB);
-    const atingiuTeto = jogo.pontosA >= pontosNecessarios || jogo.pontosB >= pontosNecessarios;
-    
-    if (atingiuTeto && diferencaPontos < 2) {
-      alert(`Para encerrar o set, é necessário uma diferença de 2 pontos! Placar atual: ${jogo.pontosA} x ${jogo.pontosB}`);
-      return;
-    }
-
-    if (!atingiuTeto) { 
-      if (!confirm(`Nenhum time atingiu os pontos previstos (${pontosNecessarios}). Encerrar mesmo assim?`)) return; 
-    }
-
     if (jogo.pontosA === jogo.pontosB) {
       alert("O set não pode terminar empatado!");
       return;
+    }
+
+    // LÓGICA OFICIAL DE VALIDAÇÃO DE PONTOS DO VÔLEI
+    const pontosVencedor = Math.max(jogo.pontosA, jogo.pontosB);
+    const pontosPerdedor = Math.min(jogo.pontosA, jogo.pontosB);
+    const pontosExatosParaVencer = Math.max(pontosNecessarios, pontosPerdedor + 2);
+
+    if (pontosVencedor > pontosExatosParaVencer) {
+      alert(`Placar inválido (passou do limite)! Com o perdedor tendo ${pontosPerdedor} pontos, o set deveria fechar exatamente em ${pontosExatosParaVencer}. Use o botão (-) para arrumar os pontos extras antes de encerrar.`);
+      return;
+    }
+
+    if (pontosVencedor < pontosExatosParaVencer) {
+      let aviso = `O placar não atingiu a pontuação mínima oficial para fechar o set (${pontosExatosParaVencer} pontos).`;
+      if (pontosVencedor >= pontosNecessarios && (pontosVencedor - pontosPerdedor) < 2) {
+         aviso = `Pela regra oficial, é obrigatório ter 2 pontos de diferença para fechar o set. O placar atual está ${jogo.pontosA}x${jogo.pontosB} (O alvo correto seria ${pontosExatosParaVencer}).`;
+      }
+      if (!confirm(`${aviso}\n\nDeseja forçar o encerramento mesmo assim (ex: o tempo da quadra de aluguel acabou)?`)) {
+        return;
+      }
     }
 
     const updates: Record<string, string | number> = {};
