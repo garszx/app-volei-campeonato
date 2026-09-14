@@ -320,20 +320,63 @@
   .teamColAdmin { width: 100%; }
 }
 
+/* --- REGRAS ESPECÍFICAS PARA TELA E IMPRESSÃO (PDF) --- */
+.hideOnScreen {
+  display: none;
+}
+
 @media print {
   body {
     background: white !important;
     color: black !important;
   }
-  .no-print, .dangerZone, .loginBox, .btnDanger {
+  
+  /* Esconde tudo que não deve sair no PDF */
+  .no-print, .hideOnPrint {
     display: none !important;
   }
+  
+  /* Força a exibição dos Jogos e Classificação, mesmo se a pessoa estiver na aba da Mesa */
+  .showOnPrint {
+    display: block !important;
+  }
+  
+  /* Quebra a página para a classificação não ficar grudada na tabela de jogos */
+  .printPageBreak {
+    page-break-before: always;
+    padding-top: 20px;
+  }
+
+  /* Estiliza os títulos escondidos que só aparecem no PDF */
+  .printTitle {
+    display: block !important;
+    color: black !important;
+    text-align: center;
+    font-size: 26px;
+    font-weight: bold;
+    margin-bottom: 25px;
+    -webkit-text-fill-color: black !important;
+  }
+  
+  /* Ajusta as cores para o papel branco */
   .cardJogo, .tableContainer {
     box-shadow: none !important;
     border: 1px solid #ccc !important;
     break-inside: avoid;
+    background: white !important;
   }
-  .title {
-    -webkit-text-fill-color: black !important;
+  
+  .time span, .placarNumeros, .horario, .jogoNumero {
+    color: black !important;
+  }
+  
+  .tableClassificacao th {
+    background: #f1f5f9 !important;
+    color: black !important;
+  }
+  
+  .tableClassificacao td {
+    color: black !important;
+    border-bottom: 1px solid #ccc !important;
   }
 }

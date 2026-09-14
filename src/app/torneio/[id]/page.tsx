@@ -158,9 +158,7 @@ export default function HubTorneio() {
   const gerarRelatorioELimpar = async () => {
     const confirmacao = confirm("Deseja gerar um PDF de relatório? Após salvar o PDF, o torneio será APAGADO do banco de dados para liberar espaço no sistema.");
     if (!confirmacao) return;
-
     window.print();
-
     setTimeout(async () => {
       try {
         await remove(ref(db, `torneios/${torneioId}`));
@@ -222,7 +220,8 @@ export default function HubTorneio() {
         )}
       </div>
 
-      {abaAtiva === 'jogos' && (
+      <div className={`${abaAtiva === 'jogos' ? '' : styles.hideOnScreen} ${styles.showOnPrint}`}>
+        <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
         <div className={styles.listaJogos}>
           {partidas.map((jogo) => {
             const num = jogo.id.split('_')[1];
@@ -250,9 +249,10 @@ export default function HubTorneio() {
             );
           })}
         </div>
-      )}
+      </div>
 
-      {abaAtiva === 'classificacao' && (
+      <div className={`${abaAtiva === 'classificacao' ? '' : styles.hideOnScreen} ${styles.showOnPrint} ${styles.printPageBreak}`}>
+        <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Classificação Final</h2>
         <div className={styles.tableWrapper}>
           <div className={styles.tableContainer}>
             <table className={styles.tableClassificacao}>
@@ -276,9 +276,9 @@ export default function HubTorneio() {
             </table>
           </div>
         </div>
-      )}
+      </div>
 
-      {abaAtiva === 'live' && (
+      <div className={`${abaAtiva === 'live' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
         <div className={styles.liveContainer}>
           {jogoAtual ? (
             <>
@@ -301,10 +301,10 @@ export default function HubTorneio() {
             </div>
           ) : (<div className={styles.mensagemEspera}><h2>Torneio Finalizado! 🏆</h2></div>)}
         </div>
-      )}
+      </div>
 
-      {abaAtiva === 'admin' && (
-        !autenticado ? (
+      <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
+        {!autenticado ? (
           <form onSubmit={handleLogin} className={styles.loginBox}><h2 style={{ color: '#ef4444', marginBottom: '10px' }}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
         ) : (
           <div>
@@ -334,17 +334,13 @@ export default function HubTorneio() {
             <div className={styles.dangerZone}>
               <h3 style={{ color: '#ef4444', margin: 0 }}>Gerar Relatório e Encerrar</h3>
               <p style={{ margin: '5px 0 15px', fontSize: '14px' }}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
-              
-              <p style={{ margin: '5px 0 15px', fontSize: '12px', color: '#10b981' }}>
-                *Dica: Antes de clicar, selecione a aba de Classificação ou Jogos que deseja imprimir.
-              </p>
               <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
                 🖨️ Salvar PDF e Excluir Torneio
               </button>
             </div>
           </div>
-        )
-      )}
+        )}
+      </div>
     </div>
   );
 }
