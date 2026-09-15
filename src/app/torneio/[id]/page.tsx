@@ -291,6 +291,35 @@ export default function HubTorneio() {
     }, 1000);
   };
 
+  const compartilharLink = () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    if (navigator.share) {
+      navigator.share({ title: regras?.nomeCampeonato || 'Torneio', url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url);
+      alert('Link oficial copiado para a área de transferência!');
+    }
+  };
+
+  const baixarQRCode = async () => {
+    const urlParams = typeof window !== 'undefined' ? window.location.href : '';
+    const urlApi = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(urlParams)}`;
+    try {
+      const response = await fetch(urlApi);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `QR-Code-${regras?.nomeCampeonato || 'Torneio'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      alert('Erro ao baixar. Você pode pressionar a imagem na tela e escolher "Salvar Imagem".');
+    }
+  };
+
   const gerarTabelaDinamica = async () => {
     if (timesBase.length < 3) return;
     const timesSorteados = [...timesBase];
@@ -440,6 +469,7 @@ export default function HubTorneio() {
 
   const renderAbaAdmin = () => {
     const isMd3Geral = regras?.formatoGrupos?.includes('melhor_de_3') || regras?.formatoFinais?.includes('melhor_de_3');
+    const urlAtual = typeof window !== 'undefined' ? window.location.href : '';
     
     return (
       <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
@@ -520,6 +550,21 @@ export default function HubTorneio() {
                 </div>
               </div>
             )}
+
+            <div className={styles.card} style={{ marginTop: '20px', textAlign: 'center' }}>
+              <h3 style={{ marginBottom: '15px' }}>📲 Compartilhar Torneio</h3>
+              <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '20px' }}>
+                A torcida pode escanear o QR Code abaixo para acompanhar ao vivo.
+              </p>
+              <div style={{ background: 'white', padding: '15px', borderRadius: '12px', display: 'inline-block', marginBottom: '20px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(urlAtual)}`} alt="QR Code Oficial" width={250} height={250} style={{ display: 'block' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button onClick={baixarQRCode} className={styles.btnPrimary} style={{ maxWidth: '200px', backgroundColor: '#475569' }}>📥 Baixar QR Code</button>
+                <button onClick={compartilharLink} className={styles.btnPrimary} style={{ maxWidth: '200px' }}>🔗 Enviar Link</button>
+              </div>
+            </div>
             
             <div className={styles.dangerZone}>
               <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
