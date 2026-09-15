@@ -227,7 +227,7 @@ export default function HubTorneio() {
   const gerarSemifinais = async () => {
     const timesArray = Object.values(timesMap);
     if (timesArray.length < 4) return;
-    if (!confirm("Gerar Semifinais?")) return;
+    if (!confirm("Gerar Semifinais? O sistema organizará (1º x 4º) e (2º x 3º).")) return;
     timesArray.sort((a, b) => {
       if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
       if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
@@ -244,7 +244,7 @@ export default function HubTorneio() {
 
   const gerarFinalDireta = async () => {
     const timesArray = Object.values(timesMap);
-    if (!confirm("Gerar a Grande Final entre o 1º e o 2º da tabela?")) return;
+    if (!confirm("Gerar a Grande Final Direta entre o 1º e o 2º colocado da tabela?")) return;
     timesArray.sort((a, b) => {
       if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
       if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
@@ -278,7 +278,7 @@ export default function HubTorneio() {
   };
 
   const encerrarCampeonatoPontosCorridos = async () => {
-    if (!confirm("Tem certeza que deseja encerrar o torneio? O 1º colocado da tabela atual será o campeão!")) return;
+    if (!confirm("Tem certeza que deseja encerrar o torneio de vez? O 1º colocado da tabela atual será coroado campeão sem mata-mata!")) return;
     await update(ref(db, `torneios/${torneioId}/config`), { status: 'finais' });
   };
 
@@ -315,7 +315,7 @@ export default function HubTorneio() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
-    } catch (err) {
+    } catch {
       alert('Erro ao baixar. Você pode pressionar a imagem na tela e escolher "Salvar Imagem".');
     }
   };
@@ -493,16 +493,21 @@ export default function HubTorneio() {
             ) : proximoJogo ? (
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
             ) : statusTorneio === 'fase_grupos' ? (
+              
               <div className={`${styles.card} ${styles.textCenter}`}>
-                <h2>Fase de Grupos Encerrada!</h2>
-                {regras?.sistemaClassificacao === 'vitorias_simples' ? (
-                  <button className={styles.btnPrimary} onClick={encerrarCampeonatoPontosCorridos}>Encerrar Campeonato e Coroar Campeão 🏆</button>
-                ) : timesBase.length === 3 ? (
-                  <button className={styles.btnPrimary} onClick={gerarFinalDireta}>Gerar Grande Final Direta</button>
-                ) : (
-                  <button className={styles.btnPrimary} onClick={gerarSemifinais}>Gerar Semifinais</button>
-                )}
+                <h2 style={{ marginBottom: '20px' }}>Fase de Grupos Encerrada!</h2>
+                <p style={{ color: '#94a3b8', marginBottom: '20px', fontSize: '14px' }}>Escolha como deseja prosseguir com a competição:</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {timesBase.length >= 4 && (
+                    <button className={styles.btnPrimary} onClick={gerarSemifinais}>🏆 Avançar para Semifinais</button>
+                  )}
+                  {timesBase.length >= 3 && (
+                    <button className={styles.btnPrimary} style={{ backgroundColor: '#3b82f6' }} onClick={gerarFinalDireta}>🥇 Gerar Grande Final Direta (1º x 2º)</button>
+                  )}
+                  <button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={encerrarCampeonatoPontosCorridos}>🛑 Encerrar e Coroar Campeão da Tabela</button>
+                </div>
               </div>
+
             ) : statusTorneio === 'semifinais' ? (
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
             ) : statusTorneio === 'finais' ? (

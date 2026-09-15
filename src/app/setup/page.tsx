@@ -26,7 +26,7 @@ export default function Setup() {
     ptsVitoriaPerfeita: 3,
     ptsVitoriaTiebreak: 2,
     ptsDerrotaTiebreak: 1,
-    senhaAdmin: '' // Variável adicionada aqui para o TypeScript reconhecer
+    senhaAdmin: ''
   });
 
   const [times, setTimes] = useState<TimeConfig[]>([
@@ -111,7 +111,6 @@ export default function Setup() {
           
           <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', padding: '15px', borderRadius: '8px', marginBottom: '30px' }}>
             <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>Senha de acesso à Mesa Oficial:</p>
-            {/* O "any" foi removido daqui pois o TypeScript agora reconhece a variável */}
             <p style={{ margin: '5px 0 0 0', color: '#10b981', fontSize: '24px', fontWeight: 'bold', letterSpacing: '2px' }}>
               {regras.senhaAdmin}
             </p>
@@ -134,7 +133,15 @@ export default function Setup() {
         <h2 className={styles.configTitle}>Regras e Formato</h2>
         <div className={styles.configGrid}>
           <div className={styles.configItem} style={{ gridColumn: '1 / -1' }}><label>Nome do Campeonato</label><input type="text" className={styles.input} value={regras.nomeCampeonato} onChange={(e) => handleRegraChange('nomeCampeonato', e.target.value)} /></div>
-          <div className={styles.configItem}><label>Sistema de Disputa</label><select className={styles.select} value={regras.sistemaClassificacao} onChange={(e) => handleRegraChange('sistemaClassificacao', e.target.value)}><option value="vitorias_simples">Pontos Corridos (Campeão pela Tabela)</option><option value="sistema_pontos">Fase de Grupos + Mata-Mata</option></select></div>
+          
+          <div className={styles.configItem}>
+            <label>Critério da Tabela (Grupos)</label>
+            <select className={styles.select} value={regras.sistemaClassificacao} onChange={(e) => handleRegraChange('sistemaClassificacao', e.target.value)}>
+              <option value="vitorias_simples">Simples (Apenas Vitórias e Saldo)</option>
+              <option value="sistema_pontos">Profissional FIVB (3pts, 2pts, 1pt)</option>
+            </select>
+          </div>
+
           <div className={styles.configItem}><label>Formato de Confrontos</label><select className={styles.select} value={regras.turno} onChange={(e) => handleRegraChange('turno', e.target.value)}><option value="unico">Turno Único (1 jogo contra cada)</option><option value="ida_volta">Ida e Volta (2 jogos contra cada)</option></select></div>
           <div className={styles.configItem}><label>Horário do 1º Jogo</label><input type="time" className={styles.input} value={regras.horarioInicio} onChange={(e) => handleRegraChange('horarioInicio', e.target.value)} /></div>
           <div className={styles.configItem}><label>Intervalo (Minutos)</label><input type="number" className={styles.input} value={regras.intervaloMinutos} onChange={(e) => handleRegraChange('intervaloMinutos', Number(e.target.value))} /></div>
