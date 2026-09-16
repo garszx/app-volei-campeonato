@@ -8,7 +8,7 @@ import { ref, onValue, set, update, remove } from 'firebase/database';
 import styles from './tabela.module.css';
 
 interface Time { id: string; nome: string; escudoUrl: string; }
-interface TimeDb { id: string; nome: string; escudoUrl: string; sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
+interface TimeDb { id: string; nome: string; escudoUrl: string; chave?: string; sets_vencidos: number; sets_perdidos?: number; total_pontos: number; pontos_sofridos?: number; pontos_classificacao: number; sets_average?: number; points_average?: number; }
 interface Partida { id: string; fase: string; horario: string; status: string; pontosA: number; pontosB: number; setsVencidosA?: number; setsVencidosB?: number; timeA: Time; timeB: Time; }
 interface Regras { nomeCampeonato: string; mostrarLogos: boolean; horarioInicio: string; intervaloMinutos: number; formatoGrupos: string; formatoFinais: string; sistemaClassificacao: string; turno: string; senhaAdmin?: string; }
 
@@ -44,11 +44,19 @@ export default function HubTorneio() {
         if (data.times) {
           setTimesBase(Object.values(data.times));
           const timesArray = Object.values(data.times) as TimeDb[];
+          
           timesArray.sort((a, b) => {
-            if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
-            if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
+            const isSimples = data.config?.regras?.sistemaClassificacao !== 'sistema_pontos';
+            if (isSimples) {
+              if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
+            } else {
+              if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
+            }
+            if ((b.sets_average || 0) !== (a.sets_average || 0)) return (b.sets_average || 0) - (a.sets_average || 0);
+            if ((b.points_average || 0) !== (a.points_average || 0)) return (b.points_average || 0) - (a.points_average || 0);
             return (b.total_pontos || 0) - (a.total_pontos || 0);
           });
+          
           setTimesClassificacao(timesArray);
         }
         if (data.partidas) {
@@ -77,10 +85,8 @@ export default function HubTorneio() {
     setIsUpdatingScore(true);
 
     const jogo = partidas.find(p => p.id === id);
-    if (!jogo) {
-      setIsUpdatingScore(false);
-      return;
-    }
+    if (!jogo) { setIsUpdatingScore(false); return; }
+    
     const campo = time === 'A' ? 'pontosA' : 'pontosB';
     let novoValor = jogo[campo] + valor;
     if (novoValor < 0) novoValor = 0;
@@ -93,8 +99,8 @@ export default function HubTorneio() {
     const timesTemp = JSON.parse(JSON.stringify(timesMap)) as Record<string, TimeDb>;
     
     Object.keys(timesTemp).forEach(k => {
-      timesTemp[k].total_pontos = 0;
-      timesTemp[k].sets_vencidos = 0;
+      timesTemp[k].total_pontos = 0; timesTemp[k].pontos_sofridos = 0;
+      timesTemp[k].sets_vencidos = 0; timesTemp[k].sets_perdidos = 0;
       timesTemp[k].pontos_classificacao = 0;
     });
 
@@ -106,22 +112,23 @@ export default function HubTorneio() {
         const tB = timesTemp[p.timeB.id];
         if (!tA || !tB) return;
 
-        tA.total_pontos += p.pontosA;
-        tB.total_pontos += p.pontosB;
+        tA.total_pontos += p.pontosA; 
+        tA.pontos_sofridos = (tA.pontos_sofridos || 0) + p.pontosB;
+        
+        tB.total_pontos += p.pontosB; 
+        tB.pontos_sofridos = (tB.pontos_sofridos || 0) + p.pontosA;
 
         const venceuA = p.pontosA > p.pontosB;
         const venceuB = p.pontosB > p.pontosA;
 
-        let setsA = p.setsVencidosA || 0;
-        let setsB = p.setsVencidosB || 0;
+        let setsA = p.setsVencidosA || 0; let setsB = p.setsVencidosB || 0;
+        if (!isMd3Grupos) { setsA = venceuA ? 1 : 0; setsB = venceuB ? 1 : 0; }
 
-        if (!isMd3Grupos) {
-          setsA = venceuA ? 1 : 0;
-          setsB = venceuB ? 1 : 0;
-        }
-
-        tA.sets_vencidos += setsA;
-        tB.sets_vencidos += setsB;
+        tA.sets_vencidos += setsA; 
+        tA.sets_perdidos = (tA.sets_perdidos || 0) + setsB;
+        
+        tB.sets_vencidos += setsB; 
+        tB.sets_perdidos = (tB.sets_perdidos || 0) + setsA;
 
         if (regras?.sistemaClassificacao === 'sistema_pontos') {
           if (isMd3Grupos) {
@@ -137,27 +144,29 @@ export default function HubTorneio() {
       }
     });
 
+    Object.keys(timesTemp).forEach(k => {
+       const t = timesTemp[k];
+       const sPerd = t.sets_perdidos || 0;
+       const sVenc = t.sets_vencidos || 0;
+       const pSofr = t.pontos_sofridos || 0;
+       const pFeit = t.total_pontos || 0;
+
+       t.sets_average = sPerd === 0 ? (sVenc === 0 ? 0 : 999) : (sVenc / sPerd);
+       t.points_average = pSofr === 0 ? (pFeit === 0 ? 0 : 999) : (pFeit / pSofr);
+    });
+
     await update(ref(db, `torneios/${torneioId}/times`), timesTemp);
   };
 
   const abrirEdicao = (p: Partida) => {
-    setPartidaEditando(p.id);
-    setEditPontosA(p.pontosA);
-    setEditPontosB(p.pontosB);
-    setEditSetsA(p.setsVencidosA || 0);
-    setEditSetsB(p.setsVencidosB || 0);
+    setPartidaEditando(p.id); setEditPontosA(p.pontosA); setEditPontosB(p.pontosB);
+    setEditSetsA(p.setsVencidosA || 0); setEditSetsB(p.setsVencidosB || 0);
   };
 
   const salvarEdicao = async (jogoId: string) => {
-    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), {
-      pontosA: editPontosA,
-      pontosB: editPontosB,
-      setsVencidosA: editSetsA,
-      setsVencidosB: editSetsB
-    });
+    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), { pontosA: editPontosA, pontosB: editPontosB, setsVencidosA: editSetsA, setsVencidosB: editSetsB });
     const novasPartidas = partidas.map(p => p.id === jogoId ? { ...p, pontosA: editPontosA, pontosB: editPontosB, setsVencidosA: editSetsA, setsVencidosB: editSetsB } : p);
-    await recalcularTabela(novasPartidas);
-    setPartidaEditando(null);
+    await recalcularTabela(novasPartidas); setPartidaEditando(null);
     alert("Partida corrigida e tabela de classificação recalculada!");
   };
 
@@ -174,22 +183,11 @@ export default function HubTorneio() {
     const pontosPerdedor = Math.min(jogo.pontosA, jogo.pontosB);
     const pontosExatosParaVencer = Math.max(pontosNecessarios, pontosPerdedor + 2);
 
-    if (pontosVencedor > pontosExatosParaVencer) {
-      alert(`Placar inválido (passou do limite)! Com o perdedor tendo ${pontosPerdedor} pontos, o set deveria fechar exatamente em ${pontosExatosParaVencer}. Use o botão (-) para arrumar os pontos extras antes de encerrar.`);
-      return;
-    }
-
-    if (pontosVencedor < pontosExatosParaVencer) {
-      let aviso = `O placar não atingiu a pontuação mínima oficial para fechar o set (${pontosExatosParaVencer} pontos).`;
-      if (pontosVencedor >= pontosNecessarios && (pontosVencedor - pontosPerdedor) < 2) {
-         aviso = `Pela regra oficial, é obrigatório ter 2 pontos de diferença para fechar o set. O placar atual está ${jogo.pontosA}x${jogo.pontosB} (O alvo correto seria ${pontosExatosParaVencer}).`;
-      }
-      if (!confirm(`${aviso}\n\nDeseja forçar o encerramento mesmo assim?`)) return;
-    }
+    if (pontosVencedor > pontosExatosParaVencer) { alert(`Placar inválido! Use o botão (-) para arrumar os pontos extras antes de encerrar.`); return; }
+    if (pontosVencedor < pontosExatosParaVencer) { if (!confirm(`O placar não atingiu a regra para fechar o set. Deseja forçar o encerramento mesmo assim?`)) return; }
 
     const updates: Record<string, string | number> = {};
-    const vencedorA = jogo.pontosA > jogo.pontosB; 
-    const vencedorB = jogo.pontosB > jogo.pontosA;
+    const vencedorA = jogo.pontosA > jogo.pontosB; const vencedorB = jogo.pontosB > jogo.pontosA;
 
     if (isMelhorDe3) {
       const novosSetsA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
@@ -200,57 +198,58 @@ export default function HubTorneio() {
         updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
         updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
       } else {
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosA`] = 0; 
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosB`] = 0;
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA; 
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
+        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosA`] = 0; updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosB`] = 0;
+        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA; updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
       }
     } else {
       updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
     }
     
     await update(ref(db), updates);
-    
     const matchParaRecalculo = { ...jogo, status: 'finalizado', pontosA: jogo.pontosA, pontosB: jogo.pontosB };
-    if (isMelhorDe3) {
-      matchParaRecalculo.setsVencidosA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
-      matchParaRecalculo.setsVencidosB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0);
-    }
+    if (isMelhorDe3) { matchParaRecalculo.setsVencidosA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0); matchParaRecalculo.setsVencidosB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0); }
     
-    const isFimDePartida = !isMelhorDe3 || matchParaRecalculo.setsVencidosA === 2 || matchParaRecalculo.setsVencidosB === 2;
-    if (isFimDePartida) {
+    if (!isMelhorDe3 || matchParaRecalculo.setsVencidosA === 2 || matchParaRecalculo.setsVencidosB === 2) {
       const novasPartidas = partidas.map(p => p.id === jogo.id ? matchParaRecalculo : p);
       await recalcularTabela(novasPartidas);
     }
   };
 
   const gerarSemifinais = async () => {
-    const timesArray = Object.values(timesMap);
-    if (timesArray.length < 4) return;
-    if (!confirm("Gerar Semifinais? O sistema organizará (1º x 4º) e (2º x 3º).")) return;
-    timesArray.sort((a, b) => {
-      if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
-      if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
-      return (b.total_pontos || 0) - (a.total_pontos || 0);
-    });
-    const classificados = timesArray.slice(0, 4);
+    const isDuasChaves = timesClassificacao.some(t => t.chave === 'A' || t.chave === 'B');
     const updates: Record<string, string | Partida> = {};
     const numMatches = partidas.length;
+
+    if (isDuasChaves) {
+        const timesA = timesClassificacao.filter(t => t.chave === 'A');
+        const timesB = timesClassificacao.filter(t => t.chave === 'B');
+        if (timesA.length < 2 || timesB.length < 2) { alert("Não há times suficientes nos grupos para gerar cruzamento."); return; }
+        if (!confirm("Gerar Semifinais Cruzadas? O sistema organizará (1º A x 2º B) e (1º B x 2º A).")) return;
+        
+        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesA[0], timeB: timesB[1] };
+        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesB[0], timeB: timesA[1] };
+    } else {
+        if (timesClassificacao.length < 4) return;
+        if (!confirm("Gerar Semifinais? O sistema organizará (1º x 4º) e (2º x 3º).")) return;
+        const classificados = timesClassificacao.slice(0, 4);
+        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[3] };
+        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[1], timeB: classificados[2] };
+    }
     updates[`torneios/${torneioId}/config/status`] = 'semifinais';
-    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[3] };
-    updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[1], timeB: classificados[2] };
     await update(ref(db), updates);
   };
 
   const gerarFinalDireta = async () => {
-    const timesArray = Object.values(timesMap);
-    if (!confirm("Gerar a Grande Final Direta entre o 1º e o 2º colocado da tabela?")) return;
-    timesArray.sort((a, b) => {
-      if ((b.pontos_classificacao || 0) !== (a.pontos_classificacao || 0)) return (b.pontos_classificacao || 0) - (a.pontos_classificacao || 0);
-      if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
-      return (b.total_pontos || 0) - (a.total_pontos || 0);
-    });
-    const classificados = timesArray.slice(0, 2);
+    if (!confirm("Gerar a Grande Final Direta?")) return;
+    const isDuasChaves = timesClassificacao.some(t => t.chave === 'A' || t.chave === 'B');
+    let classificados = [];
+    if (isDuasChaves) {
+        const tA = timesClassificacao.filter(t => t.chave === 'A')[0];
+        const tB = timesClassificacao.filter(t => t.chave === 'B')[0];
+        classificados = [tA, tB];
+    } else {
+        classificados = timesClassificacao.slice(0, 2);
+    }
     const updates: Record<string, string | Partida> = {};
     const numMatches = partidas.length;
     updates[`torneios/${torneioId}/config/status`] = 'finais';
@@ -261,8 +260,7 @@ export default function HubTorneio() {
   const gerarFinais = async () => {
     if (!confirm("Gerar Finais?")) return;
     const numMatches = partidas.length;
-    const semi1 = partidas[numMatches - 2];
-    const semi2 = partidas[numMatches - 1];
+    const semi1 = partidas[numMatches - 2]; const semi2 = partidas[numMatches - 1];
     if (!semi1 || !semi2) return;
     const isSemi1MelhorDe3 = (semi1.setsVencidosA || 0) === 2 || (semi1.setsVencidosB || 0) === 2;
     const semi1VenceuA = isSemi1MelhorDe3 ? (semi1.setsVencidosA === 2) : (semi1.pontosA > semi1.pontosB);
@@ -278,83 +276,104 @@ export default function HubTorneio() {
   };
 
   const encerrarCampeonatoPontosCorridos = async () => {
-    if (!confirm("Tem certeza que deseja encerrar o torneio de vez? O 1º colocado da tabela atual será coroado campeão sem mata-mata!")) return;
+    if (!confirm("Tem certeza que deseja encerrar o torneio?")) return;
     await update(ref(db, `torneios/${torneioId}/config`), { status: 'finais' });
   };
 
   const gerarRelatorioELimpar = async () => {
-    const confirmacao = confirm("Deseja gerar um PDF de relatório? Após salvar o PDF, o torneio será APAGADO do banco de dados para liberar espaço no sistema.");
-    if (!confirmacao) return;
+    if (!confirm("Deseja gerar o PDF e APAGAR o torneio do banco de dados?")) return;
     window.print();
     setTimeout(async () => {
-      try { await remove(ref(db, `torneios/${torneioId}`)); alert("Torneio excluído com sucesso! O sistema foi reciclado e o espaço liberado."); router.push('/setup'); } catch { alert("Erro ao tentar limpar o banco de dados."); }
+      try { await remove(ref(db, `torneios/${torneioId}`)); alert("Torneio excluído com sucesso!"); router.push('/setup'); } catch { alert("Erro."); }
     }, 1000);
   };
 
-  const compartilharLink = () => {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    if (navigator.share) {
-      navigator.share({ title: regras?.nomeCampeonato || 'Torneio', url }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(url);
-      alert('Link oficial copiado para a área de transferência!');
+  const gerarTabelaDinamica = async () => {
+    if (timesBase.length < 3) return;
+    const isDuasChaves = timesBase.length >= 6;
+    
+    const timesSorteados = [...timesBase];
+    for (let i = timesSorteados.length - 1; i > 0; i--) { 
+        const j = Math.floor(Math.random() * (i + 1)); 
+        [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; 
     }
+
+    const updates: Record<string, string> = {};
+    
+    const gerarConfrontos = (grupoTimes: Time[]) => {
+        const lista = [...grupoTimes];
+        if (lista.length % 2 !== 0) lista.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
+        const confrontos = [];
+        for (let r = 0; r < lista.length - 1; r++) {
+            for (let i = 0; i < lista.length / 2; i++) {
+                const t1 = lista[i]; const t2 = lista[lista.length - 1 - i];
+                if (t1.id !== 'folga_ficticia' && t2.id !== 'folga_ficticia') confrontos.push([t1, t2]);
+            }
+            const ultimo = lista.pop()!; lista.splice(1, 0, ultimo);
+        }
+        if (regras?.turno === 'ida_volta') {
+            const tamanho = confrontos.length;
+            for(let i=0; i<tamanho; i++) confrontos.push([confrontos[i][1], confrontos[i][0]]);
+        }
+        return confrontos;
+    };
+
+    const confrontosFinais = [];
+    if (isDuasChaves) {
+        const meio = Math.ceil(timesSorteados.length / 2);
+        const grupoA = timesSorteados.slice(0, meio);
+        const grupoB = timesSorteados.slice(meio);
+        
+        grupoA.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'A');
+        grupoB.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'B');
+        
+        const confA = gerarConfrontos(grupoA);
+        const confB = gerarConfrontos(grupoB);
+        const maxLen = Math.max(confA.length, confB.length);
+        
+        for(let i=0; i<maxLen; i++){
+            if(confA[i]) confrontosFinais.push(confA[i]);
+            if(confB[i]) confrontosFinais.push(confB[i]);
+        }
+    } else {
+        timesSorteados.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'U');
+        confrontosFinais.push(...gerarConfrontos(timesSorteados));
+    }
+
+    const novasPartidas: Record<string, Partida> = {};
+    const [horaStr, minStr] = regras?.horarioInicio.split(':') || ['08', '00'];
+    let minAtual = parseInt(horaStr) * 60 + parseInt(minStr);
+    
+    confrontosFinais.forEach((par, index) => {
+        const h = Math.floor(minAtual / 60) % 24; const m = minAtual % 60;
+        const horarioText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        minAtual += (regras?.intervaloMinutos || 45);
+        
+        novasPartidas[`jogo_${index + 1}`] = {
+            id: `jogo_${index + 1}`, fase: 'grupos', horario: horarioText, status: 'pendente',
+            pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: par[0] as Time, timeB: par[1] as Time
+        };
+    });
+
+    updates[`torneios/${torneioId}/config/status`] = 'fase_grupos';
+    await update(ref(db), updates);
+    await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
   };
 
   const baixarQRCode = async () => {
     const urlParams = typeof window !== 'undefined' ? window.location.href : '';
     const urlApi = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(urlParams)}`;
     try {
-      const response = await fetch(urlApi);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `QR-Code-${regras?.nomeCampeonato || 'Torneio'}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch {
-      alert('Erro ao baixar. Você pode pressionar a imagem na tela e escolher "Salvar Imagem".');
-    }
+      const response = await fetch(urlApi); const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = blobUrl; a.download = `QR-Code.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(blobUrl);
+    } catch { alert('Erro ao baixar.'); }
   };
-
-  const gerarTabelaDinamica = async () => {
-    if (timesBase.length < 3) return;
-    const timesSorteados = [...timesBase];
-    for (let i = timesSorteados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; }
-    const listaTrabalho = [...timesSorteados];
-    if (listaTrabalho.length % 2 !== 0) listaTrabalho.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
-    
-    const confrontosGerados: [number, number][] = []; const copiaRotacao = [...listaTrabalho];
-    for (let rodada = 0; rodada < listaTrabalho.length - 1; rodada++) {
-      for (let i = 0; i < listaTrabalho.length / 2; i++) {
-        const time1 = copiaRotacao[i]; const time2 = copiaRotacao[listaTrabalho.length - 1 - i];
-        if (time1.id !== 'folga_ficticia' && time2.id !== 'folga_ficticia') { confrontosGerados.push([timesSorteados.findIndex(t => t.id === time1.id), timesSorteados.findIndex(t => t.id === time2.id)]); }
-      }
-      const ultimo = copiaRotacao.pop()!; copiaRotacao.splice(1, 0, ultimo);
-    }
-
-    if (regras?.turno === 'ida_volta') {
-      const totalJogos = confrontosGerados.length;
-      for (let i = 0; i < totalJogos; i++) {
-        confrontosGerados.push([confrontosGerados[i][1], confrontosGerados[i][0]]);
-      }
-    }
-
-    const novasPartidas: Record<string, Partida> = {};
-    const [horaStr, minStr] = regras?.horarioInicio.split(':') || ['08', '00'];
-    const minutosIniciais = parseInt(horaStr) * 60 + parseInt(minStr);
-    confrontosGerados.forEach((confronto, index) => {
-      const min = minutosIniciais + (index * (regras?.intervaloMinutos || 45));
-      novasPartidas[`jogo_${index + 1}`] = {
-        id: `jogo_${index + 1}`, fase: 'grupos', horario: `${Math.floor(min / 60) % 24}`.padStart(2, '0') + ':' + `${min % 60}`.padStart(2, '0'),
-        status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesSorteados[confronto[0]], timeB: timesSorteados[confronto[1]]
-      };
-    });
-    await update(ref(db, `torneios/${torneioId}/config`), { status: 'fase_grupos' });
-    await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
+  const compartilharLink = () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    if (navigator.share) { navigator.share({ title: regras?.nomeCampeonato || 'Torneio', url }).catch(() => {}); } 
+    else { navigator.clipboard.writeText(url); alert('Link copiado!'); }
   };
 
   const jogoAtual = partidas.find(p => p.status === 'em_andamento'); 
@@ -373,7 +392,7 @@ export default function HubTorneio() {
         <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => setAbaAtiva('admin')}>⚙️ Mesa</button>
       </div>
       {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
-        <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Tabela Dinâmica</button>
+        <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Grupos</button>
       )}
     </div>
   );
@@ -411,26 +430,30 @@ export default function HubTorneio() {
     </div>
   );
 
-  const renderAbaClassificacao = () => (
-    <div className={`${abaAtiva === 'classificacao' ? '' : styles.hideOnScreen} ${styles.showOnPrint} ${styles.printPageBreak}`}>
-      <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Classificação Final</h2>
+  const renderTabela = (timesParaRender: TimeDb[], titulo: string) => (
+    <div style={{ marginBottom: '40px' }}>
+      <h3 style={{ textAlign: 'center', marginBottom: '15px', color: '#38bdf8', fontSize: '24px' }}>{titulo}</h3>
       <div className={styles.tableWrapper}>
         <div className={styles.tableContainer}>
           <table className={styles.tableClassificacao}>
             <thead>
               <tr>
                 <th>Pos</th><th className={styles.textLeft}>Time</th>
-                {regras?.sistemaClassificacao === 'sistema_pontos' && <th>Pts</th>}
-                <th>Vitórias (Sets)</th><th>Saldo de Pontos</th>
+                {regras?.sistemaClassificacao === 'sistema_pontos' ? <th>Pts</th> : <th>Vit</th>}
+                <th>Sets (V-P)</th>
+                <th>Set Avg</th>
+                <th>Pts Avg</th>
               </tr>
             </thead>
             <tbody>
-              {timesClassificacao.map((time, index) => (
+              {timesParaRender.map((time, index) => (
                 <tr key={time.id}>
                   <td className={styles.rank}>{index + 1}º</td>
                   <td><div className={styles.teamCell}>{regras?.mostrarLogos && <Image src={time.escudoUrl} alt="Escudo" width={35} height={35} className={`${styles.escudo} ${styles.imageContain}`} />} {time.nome}</div></td>
-                  {regras?.sistemaClassificacao === 'sistema_pontos' && <td className={styles.pontosClassificacao}>{time.pontos_classificacao || 0}</td>}
-                  <td className={styles.vitorias}>{time.sets_vencidos || 0}</td><td className={styles.boldText}>{time.total_pontos || 0}</td>
+                  <td className={styles.pontosClassificacao}>{regras?.sistemaClassificacao === 'sistema_pontos' ? (time.pontos_classificacao || 0) : (time.sets_vencidos || 0)}</td>
+                  <td className={styles.vitorias}>{time.sets_vencidos || 0} - {time.sets_perdidos || 0}</td>
+                  <td className={styles.boldText}>{(time.sets_average || 0).toFixed(2).replace('.00', '')}</td>
+                  <td className={styles.boldText}>{(time.points_average || 0).toFixed(2).replace('.00', '')}</td>
                 </tr>
               ))}
             </tbody>
@@ -439,6 +462,22 @@ export default function HubTorneio() {
       </div>
     </div>
   );
+
+  const renderAbaClassificacao = () => {
+    const timesChaveA = timesClassificacao.filter(t => t.chave === 'A');
+    const timesChaveB = timesClassificacao.filter(t => t.chave === 'B');
+    const timesUnica = timesClassificacao.filter(t => !t.chave || t.chave === 'U');
+    
+    return (
+      <div className={`${abaAtiva === 'classificacao' ? '' : styles.hideOnScreen} ${styles.showOnPrint} ${styles.printPageBreak}`}>
+        <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Classificação Final</h2>
+        {timesUnica.length > 0 && renderTabela(timesUnica, 'Classificação Geral (Chave Única)')}
+        {timesChaveA.length > 0 && renderTabela(timesChaveA, '🏆 Classificação - Grupo A')}
+        {timesChaveB.length > 0 && renderTabela(timesChaveB, '🏆 Classificação - Grupo B')}
+        <p style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', marginTop: '10px' }}>* Desempates baseados no Artigo 19º: 1º Pontos/Vitórias, 2º Set Average, 3º Point Average.</p>
+      </div>
+    );
+  };
 
   const renderAbaLive = () => (
     <div className={`${abaAtiva === 'live' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
@@ -493,7 +532,6 @@ export default function HubTorneio() {
             ) : proximoJogo ? (
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
             ) : statusTorneio === 'fase_grupos' ? (
-              
               <div className={`${styles.card} ${styles.textCenter}`}>
                 <h2 style={{ marginBottom: '20px' }}>Fase de Grupos Encerrada!</h2>
                 <p style={{ color: '#94a3b8', marginBottom: '20px', fontSize: '14px' }}>Escolha como deseja prosseguir com a competição:</p>
@@ -504,10 +542,9 @@ export default function HubTorneio() {
                   {timesBase.length >= 3 && (
                     <button className={styles.btnPrimary} style={{ backgroundColor: '#3b82f6' }} onClick={gerarFinalDireta}>🥇 Gerar Grande Final Direta (1º x 2º)</button>
                   )}
-                  <button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={encerrarCampeonatoPontosCorridos}>🛑 Encerrar e Coroar Campeão da Tabela</button>
+                  <button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={encerrarCampeonatoPontosCorridos}>🛑 Encerrar e Coroar Campeão</button>
                 </div>
               </div>
-
             ) : statusTorneio === 'semifinais' ? (
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
             ) : statusTorneio === 'finais' ? (
@@ -517,7 +554,6 @@ export default function HubTorneio() {
             {partidas.some(p => p.status === 'finalizado') && (
               <div className={styles.card} style={{ marginTop: '20px' }}>
                 <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>✏️ Editar Partidas Finalizadas</h3>
-                <p style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', marginBottom: '20px' }}>Qualquer edição recalculará automaticamente a tabela de classificação.</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {partidas.filter(p => p.status === 'finalizado').map(p => (
                     <div key={p.id} style={{ border: '1px solid #334155', padding: '10px', borderRadius: '8px', background: '#0f172a' }}>
@@ -558,9 +594,6 @@ export default function HubTorneio() {
 
             <div className={styles.card} style={{ marginTop: '20px', textAlign: 'center' }}>
               <h3 style={{ marginBottom: '15px' }}>📲 Compartilhar Torneio</h3>
-              <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '20px' }}>
-                A torcida pode escanear o QR Code abaixo para acompanhar ao vivo.
-              </p>
               <div style={{ background: 'white', padding: '15px', borderRadius: '12px', display: 'inline-block', marginBottom: '20px' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(urlAtual)}`} alt="QR Code Oficial" width={250} height={250} style={{ display: 'block' }} />
@@ -573,10 +606,8 @@ export default function HubTorneio() {
             
             <div className={styles.dangerZone}>
               <h3 className={styles.dangerTitle}>Gerar Relatório e Encerrar</h3>
-              <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados para o próximo.</p>
-              <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>
-                🖨️ Salvar PDF e Excluir Torneio
-              </button>
+              <p className={styles.dangerDesc}>Salve o PDF deste campeonato e limpe o banco de dados.</p>
+              <button className={styles.btnDanger} onClick={gerarRelatorioELimpar}>🖨️ Salvar PDF e Excluir Torneio</button>
             </div>
           </div>
         )}
