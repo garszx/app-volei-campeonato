@@ -123,21 +123,24 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  gap: 15px;
 }
 
 .time {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: 32%;
+  flex: 1;
+  max-width: 40%;
+  text-align: center;
 }
 
 .time span {
-  font-weight: bold;
-  text-align: center;
+  word-break: break-word;
   font-size: 14px;
-  color: var(--foreground);
+  line-height: 1.2;
+  margin-top: 8px;
 }
 
 .escudo {
@@ -154,7 +157,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 36%;
+  justify-content: center;
+  min-width: 110px;
+  flex-shrink: 0;
+  gap: 8px;
 }
 
 .placarNumeros {
@@ -165,12 +171,12 @@
 }
 
 .statusTag {
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .statusPendente { background: #334155; color: #cbd5e1; }
