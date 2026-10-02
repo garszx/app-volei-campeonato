@@ -35,9 +35,6 @@ export default function HubTorneio() {
   const [editSetsA, setEditSetsA] = useState(0);
   const [editSetsB, setEditSetsB] = useState(0);
 
-  // Desativa o modo edição se trocar de aba para evitar que fique aberto acidentalmente
-  useEffect(() => { setModoEdicaoTabela(false); }, [abaAtiva]);
-
   useEffect(() => {
     if (!torneioId) return;
     const torneioRef = ref(db, `torneios/${torneioId}`);
@@ -411,10 +408,16 @@ export default function HubTorneio() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(blobUrl);
     } catch { alert('Erro ao baixar.'); }
   };
+  
   const compartilharLink = () => {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     if (navigator.share) { navigator.share({ title: regras?.nomeCampeonato || 'Torneio', url }).catch(() => {}); } 
     else { navigator.clipboard.writeText(url); alert('Link copiado!'); }
+  };
+
+  const trocarAba = (novaAba: 'jogos' | 'classificacao' | 'live' | 'admin') => {
+    setAbaAtiva(novaAba);
+    setModoEdicaoTabela(false); // Reseta o modo edição de forma síncrona pelo evento de clique
   };
 
   const jogoAtual = partidas.find(p => p.status === 'em_andamento'); 
@@ -427,10 +430,10 @@ export default function HubTorneio() {
     <div className={styles.header}>
       <h1 className={styles.title}>{regras?.nomeCampeonato || 'Carregando...'}</h1>
       <div className={`${styles.tabs} no-print`}>
-        <button className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('jogos')}>Tabela de Jogos</button>
-        <button className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('classificacao')}>Classificação</button>
-        <button className={`${styles.tabBtn} ${abaAtiva === 'live' ? styles.tabBtnActive : ''}`} onClick={() => setAbaAtiva('live')}>Telão Ao Vivo</button>
-        <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => setAbaAtiva('admin')}>⚙️ Mesa</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`} onClick={() => trocarAba('jogos')}>Tabela de Jogos</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`} onClick={() => trocarAba('classificacao')}>Classificação</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'live' ? styles.tabBtnActive : ''}`} onClick={() => trocarAba('live')}>Telão Ao Vivo</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => trocarAba('admin')}>⚙️ Mesa</button>
       </div>
       {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
         <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Grupos</button>
