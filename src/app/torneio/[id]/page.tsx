@@ -27,12 +27,16 @@ export default function HubTorneio() {
   const [autenticado, setAutenticado] = useState(false);
   const [timesMap, setTimesMap] = useState<Record<string, TimeDb>>({});
   const [isUpdatingScore, setIsUpdatingScore] = useState(false);
-
+  
+  const [modoEdicaoTabela, setModoEdicaoTabela] = useState(false);
   const [partidaEditando, setPartidaEditando] = useState<string | null>(null);
   const [editPontosA, setEditPontosA] = useState(0);
   const [editPontosB, setEditPontosB] = useState(0);
   const [editSetsA, setEditSetsA] = useState(0);
   const [editSetsB, setEditSetsB] = useState(0);
+
+  // Desativa o modo edição se trocar de aba para evitar que fique aberto acidentalmente
+  useEffect(() => { setModoEdicaoTabela(false); }, [abaAtiva]);
 
   useEffect(() => {
     if (!torneioId) return;
@@ -78,6 +82,43 @@ export default function HubTorneio() {
     else alert('Senha incorreta! Acesso negado.'); 
   };
   
+  /* ====================== FUNÇÕES DE EDIÇÃO RÁPIDA (MESA) ====================== */
+  const atualizarHorario = async (jogoId: string, novoHorario: string) => {
+    if (!novoHorario) return;
+    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), { horario: novoHorario });
+  };
+
+  const atualizarNomeEquipe = async (timeId: string, novoNome: string) => {
+    if (!novoNome || novoNome.trim() === '') return;
+    if (timesMap[timeId].nome === novoNome) return; 
+
+    const updates: Record<string, string> = {};
+    updates[`torneios/${torneioId}/times/${timeId}/nome`] = novoNome;
+    partidas.forEach(p => {
+       if (p.timeA.id === timeId) updates[`torneios/${torneioId}/partidas/${p.id}/timeA/nome`] = novoNome;
+       if (p.timeB.id === timeId) updates[`torneios/${torneioId}/partidas/${p.id}/timeB/nome`] = novoNome;
+    });
+    await update(ref(db), updates);
+  };
+
+  const handleUploadLogoGlobal = (timeId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+       const base64 = reader.result as string;
+       const updates: Record<string, string> = {};
+       updates[`torneios/${torneioId}/times/${timeId}/escudoUrl`] = base64;
+       partidas.forEach(p => {
+          if (p.timeA.id === timeId) updates[`torneios/${torneioId}/partidas/${p.id}/timeA/escudoUrl`] = base64;
+          if (p.timeB.id === timeId) updates[`torneios/${torneioId}/partidas/${p.id}/timeB/escudoUrl`] = base64;
+       });
+       await update(ref(db), updates);
+    };
+    reader.readAsDataURL(file);
+  };
+  /* ============================================================================== */
+
   const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
@@ -399,6 +440,40 @@ export default function HubTorneio() {
 
   const renderAbaJogos = () => (
     <div className={`${abaAtiva === 'jogos' ? '' : styles.hideOnScreen} ${styles.showOnPrint}`}>
+      
+      {/* PAINEL DE CONTROLE DE EDIÇÃO (SÓ APARECE SE ESTIVER LOGADO NA MESA) */}
+      {autenticado && statusTorneio !== 'aguardando_sorteio' && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+          <button 
+            onClick={() => setModoEdicaoTabela(!modoEdicaoTabela)}
+            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', color: 'white', backgroundColor: modoEdicaoTabela ? '#ef4444' : '#3b82f6', transition: '0.2s' }}
+          >
+            {modoEdicaoTabela ? '❌ Fechar Modo de Edição' : '✏️ Editar Nomes, Logos e Horários'}
+          </button>
+        </div>
+      )}
+
+      {/* BLOCO DE EDIÇÃO DOS TIMES (INLINE) */}
+      {modoEdicaoTabela && (
+        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
+          <h3 style={{ color: '#38bdf8', marginBottom: '5px' }}>🛠️ Editor Global de Equipes</h3>
+          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>Altere aqui para atualizar automaticamente em toda a tabela, classificação e telão.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
+            {Object.values(timesMap).map(t => (
+              <div key={t.id} style={{ backgroundColor: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {regras?.mostrarLogos && <Image src={t.escudoUrl} alt="Logo" width={40} height={40} style={{ objectFit: 'contain', backgroundColor: 'white', borderRadius: '50%' }} />}
+                  <input type="text" defaultValue={t.nome} onBlur={(e) => atualizarNomeEquipe(t.id, e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#334155', color: 'white', border: 'none', borderRadius: '4px', outline: 'none' }} />
+                </div>
+                {regras?.mostrarLogos && (
+                  <input type="file" accept="image/*" onChange={(e) => handleUploadLogoGlobal(t.id, e)} style={{ fontSize: '11px', color: '#94a3b8' }} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
       <div className={styles.listaJogos}>
         {partidas.map((jogo) => {
@@ -412,7 +487,14 @@ export default function HubTorneio() {
             <div key={jogo.id} className={styles.cardJogo}>
               <div className={styles.cardTop}>
                 <span className={styles.jogoNumero}>{jogo.fase === 'final' ? '🏆 GRANDE FINAL' : jogo.fase === 'terceiro_lugar' ? '🥉 Disputa 3º' : jogo.fase === 'semifinal' ? `Semifinal` : `Jogo ${num}`}</span>
-                <span className={styles.horario}>{jogo.horario}</span>
+                
+                {/* INPUT DE HORÁRIO DINÂMICO SE ESTIVER NO MODO EDIÇÃO */}
+                {modoEdicaoTabela ? (
+                  <input type="time" defaultValue={jogo.horario} onBlur={(e) => atualizarHorario(jogo.id, e.target.value)} style={{ padding: '2px 5px', backgroundColor: '#334155', color: '#38bdf8', border: '1px solid #38bdf8', borderRadius: '4px', fontWeight: 'bold', outline: 'none' }} />
+                ) : (
+                  <span className={styles.horario}>{jogo.horario}</span>
+                )}
+
               </div>
               <div className={styles.confronto}>
                 <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
