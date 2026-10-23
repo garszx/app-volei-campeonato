@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '../firebase';
-import { ref, onValue, set, update, remove } from 'firebase/database';
+import { ref, onValue, update, remove } from 'firebase/database';
 import { Time, TimeDb, Partida, Regras } from '../types/torneio';
 
 export function useTorneio(torneioId: string) {
@@ -114,25 +114,36 @@ export function useTorneio(torneioId: string) {
     await update(ref(db, `torneios/${torneioId}/times/${timeId}`), { chave: novaChave });
   };
 
-  const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
+  const iniciarPartida = async (id: string) => { 
+    await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); 
+  };
   
+  // API: Atualizar Placar
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
     if (isUpdatingScore) return;
     setIsUpdatingScore(true);
-    const jogo = partidas.find(p => p.id === id);
-    if (!jogo) { setIsUpdatingScore(false); return; }
-    const campo = time === 'A' ? 'pontosA' : 'pontosB';
-    let novoValor = jogo[campo] + valor;
-    if (novoValor < 0) novoValor = 0;
-    await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { [campo]: novoValor });
-    setTimeout(() => setIsUpdatingScore(false), 200);
+    
+    try {
+      await fetch('/api/partidas/placar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ torneioId, partidaId: id, time, valor })
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar placar:", error);
+      alert("Falha de conexão. Tente novamente.");
+    } finally {
+      setTimeout(() => setIsUpdatingScore(false), 200);
+    }
   };
 
+  // Mantida para uso exclusivo da edição do Mestre
   const recalcularTabela = async (partidasAtualizadas: Partida[]) => {
     const timesTemp = JSON.parse(JSON.stringify(timesMap)) as Record<string, TimeDb>;
     Object.keys(timesTemp).forEach(k => {
       timesTemp[k].total_pontos = 0; timesTemp[k].pontos_sofridos = 0;
-      timesTemp[k].sets_vencidos = 0; timesTemp[k].sets_perdidos = 0; timesTemp[k].pontos_classificacao = 0;
+      timesTemp[k].sets_vencidos = 0; timesTemp[k].sets_perdidos = 0;
+      timesTemp[k].pontos_classificacao = 0;
     });
     const isMd3Grupos = regras?.formatoGrupos?.includes('melhor_de_3');
 
@@ -193,10 +204,12 @@ export function useTorneio(torneioId: string) {
 
     await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), dadosAtualizados);
     const novasPartidas = partidas.map(p => p.id === jogoId ? { ...p, ...dadosAtualizados } : p);
-    await recalcularTabela(novasPartidas); setPartidaEditando(null);
+    await recalcularTabela(novasPartidas); 
+    setPartidaEditando(null);
     alert("Alterações aplicadas e tabela recalculada!");
   };
 
+  // API: Encerrar Ação
   const encerrarAcao = async (jogo: Partida) => {
     const formatoPartida = jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
     const isMelhorDe3 = formatoPartida?.includes('melhor_de_3');
@@ -210,140 +223,69 @@ export function useTorneio(torneioId: string) {
     const pontosPerdedor = Math.min(jogo.pontosA, jogo.pontosB);
     const pontosExatosParaVencer = Math.max(pontosNecessarios, pontosPerdedor + 2);
 
-    if (pontosVencedor > pontosExatosParaVencer) { alert(`Placar inválido!`); return; }
-    if (pontosVencedor < pontosExatosParaVencer) { if (!confirm(`O placar não atingiu a regra. Forçar encerramento?`)) return; }
+    if (pontosVencedor > pontosExatosParaVencer) { alert(`Placar inválido! Use o botão (-) para arrumar os pontos extras antes de encerrar.`); return; }
+    if (pontosVencedor < pontosExatosParaVencer) { if (!confirm(`O placar não atingiu a regra para fechar o set. Deseja forçar o encerramento mesmo assim?`)) return; }
 
-    const updates: Record<string, string | number> = {};
-    const vencedorA = jogo.pontosA > jogo.pontosB; const vencedorB = jogo.pontosB > jogo.pontosA;
+    try {
+      await fetch('/api/partidas/encerrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ torneioId, partidaId: jogo.id })
+      });
+    } catch (error) {
+      console.error("Erro ao encerrar:", error);
+      alert("Falha de conexão com o servidor. Tente novamente.");
+    }
+  };
 
-    if (isMelhorDe3) {
-      const novosSetsA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0);
-      const novosSetsB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0);
-      if (novosSetsA === 2 || novosSetsB === 2) {
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA;
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
-      } else {
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosA`] = 0; updates[`torneios/${torneioId}/partidas/${jogo.id}/pontosB`] = 0;
-        updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosA`] = novosSetsA; updates[`torneios/${torneioId}/partidas/${jogo.id}/setsVencidosB`] = novosSetsB;
-      }
-    } else {
-      updates[`torneios/${torneioId}/partidas/${jogo.id}/status`] = 'finalizado';
+  // API: Gerar Tabela Dinâmica
+  const gerarTabelaDinamica = async () => {
+    if (timesBase.length < 3) {
+      alert("É necessário pelo menos 3 times para gerar a tabela.");
+      return;
     }
     
-    await update(ref(db), updates);
-    const matchParaRecalculo = { ...jogo, status: 'finalizado', pontosA: jogo.pontosA, pontosB: jogo.pontosB };
-    if (isMelhorDe3) { matchParaRecalculo.setsVencidosA = (jogo.setsVencidosA || 0) + (vencedorA ? 1 : 0); matchParaRecalculo.setsVencidosB = (jogo.setsVencidosB || 0) + (vencedorB ? 1 : 0); }
-    if (!isMelhorDe3 || matchParaRecalculo.setsVencidosA === 2 || matchParaRecalculo.setsVencidosB === 2) {
-      const novasPartidas = partidas.map(p => p.id === jogo.id ? matchParaRecalculo : p);
-      await recalcularTabela(novasPartidas);
+    if (!confirm("Isso vai embaralhar as equipes e gerar a tabela de jogos oficial. Tem certeza?")) return;
+
+    try {
+      await fetch('/api/torneios/gerar-tabela', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ torneioId })
+      });
+    } catch (error) {
+      console.error("Erro ao gerar tabela:", error);
+      alert("Falha de conexão com o servidor. Tente novamente.");
     }
   };
 
-  const gerarTabelaDinamica = async () => {
-    if (timesBase.length < 3) return;
-    const isDuasChaves = timesBase.length >= 6;
-    const timesSorteados = [...timesBase];
-    for (let i = timesSorteados.length - 1; i > 0; i--) { 
-        const j = Math.floor(Math.random() * (i + 1)); 
-        [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; 
-    }
-    const updates: Record<string, string> = {};
-    const gerarConfrontos = (grupoTimes: Time[]) => {
-        const lista = [...grupoTimes];
-        if (lista.length % 2 !== 0) lista.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
-        const confrontos = [];
-        for (let r = 0; r < lista.length - 1; r++) {
-            for (let i = 0; i < lista.length / 2; i++) {
-                const t1 = lista[i]; const t2 = lista[lista.length - 1 - i];
-                if (t1.id !== 'folga_ficticia' && t2.id !== 'folga_ficticia') confrontos.push([t1, t2]);
-            }
-            const ultimo = lista.pop()!; lista.splice(1, 0, ultimo);
-        }
-        if (regras?.turno === 'ida_volta') {
-            const tamanho = confrontos.length;
-            for(let i=0; i<tamanho; i++) confrontos.push([confrontos[i][1], confrontos[i][0]]);
-        }
-        return confrontos;
-    };
-    const confrontosFinais = [];
-    if (isDuasChaves) {
-        const meio = Math.ceil(timesSorteados.length / 2);
-        const grupoA = timesSorteados.slice(0, meio); const grupoB = timesSorteados.slice(meio);
-        grupoA.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'A');
-        grupoB.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'B');
-        const confA = gerarConfrontos(grupoA); const confB = gerarConfrontos(grupoB);
-        const maxLen = Math.max(confA.length, confB.length);
-        for(let i=0; i<maxLen; i++){ if(confA[i]) confrontosFinais.push(confA[i]); if(confB[i]) confrontosFinais.push(confB[i]); }
-    } else {
-        timesSorteados.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'U');
-        confrontosFinais.push(...gerarConfrontos(timesSorteados));
-    }
-    const novasPartidas: Record<string, Partida> = {};
-    const [horaStr, minStr] = (regras?.horarioInicio || '08:00').split(':');
-    let minAtual = parseInt(horaStr) * 60 + parseInt(minStr);
-    confrontosFinais.forEach((par, index) => {
-        const h = Math.floor(minAtual / 60) % 24; const m = minAtual % 60;
-        novasPartidas[`jogo_${index + 1}`] = {
-            id: `jogo_${index + 1}`, fase: 'grupos', horario: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`, status: 'pendente',
-            pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: par[0] as Time, timeB: par[1] as Time
-        };
-        minAtual += (regras?.intervaloMinutos || 45);
-    });
-    updates[`torneios/${torneioId}/config/status`] = 'fase_grupos';
-    await update(ref(db), updates); await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
-  };
-
+  // API: Transições de Fases (Semifinais, Finais, Encerramento)
   const gerarSemifinais = async () => {
-    const isDuasChaves = timesClassificacao.some(t => t.chave === 'A' || t.chave === 'B');
-    const updates: Record<string, string | Partida> = {};
-    const numMatches = partidas.length;
-
-    if (isDuasChaves) {
-        const timesA = timesClassificacao.filter(t => t.chave === 'A'); const timesB = timesClassificacao.filter(t => t.chave === 'B');
-        if (timesA.length < 2 || timesB.length < 2) { alert("Não há times suficientes."); return; }
-        if (!confirm("Gerar Semifinais Cruzadas?")) return;
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesA[0], timeB: timesB[1] };
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesB[0], timeB: timesA[1] };
-    } else {
-        if (timesClassificacao.length < 4) return;
-        if (!confirm("Gerar Semifinais?")) return;
-        const classificados = timesClassificacao.slice(0, 4);
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[3] };
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[1], timeB: classificados[2] };
-    }
-    updates[`torneios/${torneioId}/config/status`] = 'semifinais';
-    await update(ref(db), updates);
+    if (!confirm("Gerar Semifinais?")) return;
+    try {
+      await fetch('/api/torneios/fases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ torneioId, acao: 'gerarSemifinais' }) });
+    } catch (error) { console.error("Erro:", error); alert("Falha na conexão."); }
   };
 
   const gerarFinalDireta = async () => {
     if (!confirm("Gerar a Grande Final Direta?")) return;
-    const isDuasChaves = timesClassificacao.some(t => t.chave === 'A' || t.chave === 'B');
-    const classificados = isDuasChaves ? [timesClassificacao.filter(t => t.chave === 'A')[0], timesClassificacao.filter(t => t.chave === 'B')[0]] : timesClassificacao.slice(0, 2);
-    const updates: Record<string, string | Partida> = {};
-    updates[`torneios/${torneioId}/config/status`] = 'finais';
-    updates[`torneios/${torneioId}/partidas/jogo_${partidas.length + 1}`] = { id: `jogo_${partidas.length + 1}`, fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[1] };
-    await update(ref(db), updates);
+    try {
+      await fetch('/api/torneios/fases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ torneioId, acao: 'gerarFinalDireta' }) });
+    } catch (error) { console.error("Erro:", error); alert("Falha na conexão."); }
   };
 
   const gerarFinais = async () => {
     if (!confirm("Gerar Finais?")) return;
-    const semi1 = partidas[partidas.length - 2]; const semi2 = partidas[partidas.length - 1];
-    if (!semi1 || !semi2) return;
-    const semi1VenceuA = ((semi1.setsVencidosA || 0) === 2 || (semi1.setsVencidosB || 0) === 2) ? (semi1.setsVencidosA === 2) : (semi1.pontosA > semi1.pontosB);
-    const semi2VenceuA = ((semi2.setsVencidosA || 0) === 2 || (semi2.setsVencidosB || 0) === 2) ? (semi2.setsVencidosA === 2) : (semi2.pontosA > semi2.pontosB);
-    const vencedor16 = semi1VenceuA ? semi1.timeA : semi1.timeB; const perdedor16 = semi1VenceuA ? semi1.timeB : semi1.timeA;
-    const vencedor17 = semi2VenceuA ? semi2.timeA : semi2.timeB; const perdedor17 = semi2VenceuA ? semi2.timeB : semi2.timeA;
-    const updates: Record<string, string | Partida> = {};
-    updates[`torneios/${torneioId}/config/status`] = 'finais';
-    updates[`torneios/${torneioId}/partidas/jogo_${partidas.length + 1}`] = { id: `jogo_${partidas.length + 1}`, fase: 'terceiro_lugar', horario: 'DISPUTA 3º', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: perdedor16, timeB: perdedor17 };
-    updates[`torneios/${torneioId}/partidas/jogo_${partidas.length + 2}`] = { id: `jogo_${partidas.length + 2}`, fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: vencedor16, timeB: vencedor17 };
-    await update(ref(db), updates);
+    try {
+      await fetch('/api/torneios/fases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ torneioId, acao: 'gerarFinais' }) });
+    } catch (error) { console.error("Erro:", error); alert("Falha na conexão."); }
   };
 
   const encerrarCampeonatoPontosCorridos = async () => {
     if (!confirm("Tem certeza que deseja encerrar o torneio?")) return;
-    await update(ref(db, `torneios/${torneioId}/config`), { status: 'finais' });
+    try {
+      await fetch('/api/torneios/fases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ torneioId, acao: 'encerrarCampeonatoPontosCorridos' }) });
+    } catch (error) { console.error("Erro:", error); alert("Falha na conexão."); }
   };
 
   const gerarRelatorioELimpar = async () => {
@@ -385,7 +327,6 @@ export function useTorneio(torneioId: string) {
   };
   const isInvertido = verificarInversaoFIVB(jogoAtual);
 
-  
   return {
     timesClassificacao, timesBase, partidas, statusTorneio, regras, timesMap,
     senha, setSenha, nivelAcesso, mostrarEditorEquipes, setMostrarEditorEquipes,
