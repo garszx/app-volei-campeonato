@@ -1,0 +1,36 @@
+.hideOnScreen { display: none; }
+.hideOnPrint { display: block; }
+@media print { .hideOnPrint { display: none !important; } }
+
+.loginBox { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; background-color: #1e293b; border-radius: 12px; max-width: 400px; margin: 40px auto; border: 1px solid #334155; }
+.adminWarningTitle { color: #ef4444; margin-bottom: 20px; }
+.input { padding: 12px; border-radius: 8px; border: 1px solid #475569; background-color: #0f172a; color: white; margin-bottom: 20px; width: 100%; font-size: 16px; outline: none; }
+.btnPrimary { background-color: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
+.btnPrimary:hover { background-color: #2563eb; }
+
+.card { background-color: #1e293b; border-radius: 12px; padding: 25px; margin-bottom: 20px; border: 1px solid #334155; }
+.textCenter { text-align: center; }
+.adminGameTitle { text-align: center; color: #38bdf8; margin-bottom: 10px; font-size: 20px; }
+.adminSetsTitle { color: #94a3b8; font-size: 16px; margin-bottom: 25px; }
+
+.scoreBoard { display: flex; justify-content: space-around; align-items: center; margin-bottom: 30px; }
+.teamColAdmin { display: flex; flex-direction: column; align-items: center; gap: 15px; width: 40%; }
+.teamColAdmin h3 { font-size: 18px; color: white; text-align: center; word-break: break-word; }
+.scoreText { font-size: 60px; font-weight: bold; color: #38bdf8; line-height: 1; }
+.controls { display: flex; gap: 10px; width: 100%; justify-content: center; }
+.btnScore { padding: 10px 25px; font-size: 24px; font-weight: bold; color: white; border: none; border-radius: 8px; cursor: pointer; touch-action: manipulation; }
+.btnMinus { background-color: #ef4444; }
+.btnPlus { background-color: #10b981; }
+.adminVsText { font-size: 24px; color: #475569; }
+
+.btnEnd { width: 100%; padding: 15px; background-color: #f59e0b; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+.adminNextGameMatch { font-size: 24px; color: white; margin: 20px 0; }
+.btnWarning { background-color: #f59e0b; }
+.boldText { font-weight: bold; color: white; }
+
+.dangerZone { margin-top: 40px; padding: 25px; background-color: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 12px; text-align: center; }
+.dangerTitle { color: #ef4444; margin-bottom: 10px; }
+.dangerDesc { color: #cbd5e1; margin-bottom: 20px; font-size: 14px; }
+.btnDanger { background-color: #ef4444; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.btnDanger:hover { background-color: #dc2626; }
+.imageContain { object-fit: contain; }

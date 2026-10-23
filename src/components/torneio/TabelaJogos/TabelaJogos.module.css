@@ -1,0 +1,31 @@
+.hideOnScreen { display: none; }
+.showOnPrint { display: block; }
+.printTitle { text-align: center; margin-bottom: 20px; font-size: 24px; }
+.listaJogos { display: flex; flex-direction: column; gap: 15px; }
+.cardJogo { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 15px; }
+.cardTop { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+.jogoNumero { font-weight: bold; color: #94a3b8; font-size: 14px; }
+.horario { font-weight: bold; color: #38bdf8; }
+.confronto { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 15px; }
+.time { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 40%; text-align: center; }
+.time span { word-break: break-word; font-size: 14px; line-height: 1.2; margin-top: 8px; font-weight: bold; }
+.escudo { object-fit: contain; }
+.imageContain { object-fit: contain; }
+.placarCentral { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 110px; flex-shrink: 0; gap: 8px; }
+.setsLabel { font-size: 12px; color: #94a3b8; }
+.placarNumeros { font-size: 24px; font-weight: bold; }
+.statusTag { font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 12px; text-align: center; white-space: nowrap; }
+.statusPendente { background-color: #334155; color: #cbd5e1; }
+.statusAndamento { background-color: #ef4444; color: white; animation: pulse 2s infinite; }
+.statusFinalizado { background-color: #10b981; color: white; }
+
+@keyframes pulse { 
+  0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } 
+}
+
+@media print {
+  .hideOnScreen { display: block !important; }
+  .cardJogo { page-break-inside: avoid; border: 1px solid #000; background-color: #fff; color: #000; margin-bottom: 10px; }
+  .horario, .jogoNumero, .time span, .placarNumeros { color: #000 !important; }
+  .statusTag { border: 1px solid #000; background-color: transparent !important; color: #000 !important; }
+}

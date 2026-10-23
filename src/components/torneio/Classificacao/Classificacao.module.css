@@ -1,0 +1,25 @@
+.hideOnScreen { display: none; }
+.showOnPrint { display: block; }
+.printTitle { text-align: center; margin-bottom: 20px; font-size: 24px; }
+.tableWrapper { overflow-x: auto; background-color: #1e293b; border-radius: 12px; border: 1px solid #334155; }
+.tableContainer { min-width: 600px; }
+.tableClassificacao { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; }
+.tableClassificacao th { background-color: #0f172a; color: #94a3b8; padding: 15px 10px; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #334155; }
+.tableClassificacao td { padding: 12px 10px; border-bottom: 1px solid #334155; color: #cbd5e1; }
+.tableClassificacao tbody tr:hover { background-color: #334155; }
+.textLeft { text-align: left; }
+.teamCell { display: flex; align-items: center; gap: 10px; font-weight: bold; color: white; }
+.rank { font-weight: bold; color: #10b981; font-size: 16px; }
+.pontosClassificacao { font-weight: bold; color: #38bdf8; font-size: 16px; }
+.vitorias { font-weight: bold; color: white; }
+.boldText { font-weight: bold; }
+.escudo { object-fit: contain; }
+.imageContain { object-fit: contain; }
+
+@media print {
+  .hideOnScreen { display: block !important; }
+  .printPageBreak { page-break-before: always; }
+  .tableWrapper { border: 1px solid #000; background-color: transparent; }
+  .tableClassificacao th { background-color: #eee; color: #000; border-bottom: 2px solid #000; }
+  .tableClassificacao td, .teamCell, .rank, .pontosClassificacao, .vitorias, .boldText { color: #000 !important; border-bottom: 1px solid #ccc; }
+}
