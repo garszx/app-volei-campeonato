@@ -124,6 +124,14 @@ export default function HubTorneio() {
     reader.readAsDataURL(file);
   };
 
+  // NOVO: Função para o Mestre forçar a mudança de Grupo (Chave) da equipe
+  const atualizarChaveEquipe = async (timeId: string, novaChave: string) => {
+    if (!novaChave || timesMap[timeId].chave === novaChave) return; 
+    const updates: Record<string, string> = {};
+    updates[`torneios/${torneioId}/times/${timeId}/chave`] = novaChave;
+    await update(ref(db), updates);
+  };
+
   const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
@@ -469,6 +477,7 @@ export default function HubTorneio() {
         </div>
       )}
 
+      {/* NOVO: BLOCO GLOBAL AGORA COM SELETOR DE CHAVES PARA O MESTRE */}
       {modoEdicaoTabela && (
         <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
           <h3 style={{ color: '#38bdf8', marginBottom: '5px' }}>🛠️ Editor Global de Equipes</h3>
@@ -476,13 +485,31 @@ export default function HubTorneio() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
             {Object.values(timesMap).map(t => (
               <div key={t.id} style={{ backgroundColor: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {regras?.mostrarLogos && <Image src={t.escudoUrl} alt="Logo" width={40} height={40} style={{ objectFit: 'contain', backgroundColor: 'white', borderRadius: '50%' }} />}
                   <input type="text" defaultValue={t.nome} onBlur={(e) => atualizarNomeEquipe(t.id, e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#334155', color: 'white', border: 'none', borderRadius: '4px', outline: 'none' }} />
                 </div>
-                {regras?.mostrarLogos && (
-                  <input type="file" accept="image/*" onChange={(e) => handleUploadLogoGlobal(t.id, e)} style={{ fontSize: '11px', color: '#94a3b8' }} />
-                )}
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {regras?.mostrarLogos ? (
+                    <input type="file" accept="image/*" onChange={(e) => handleUploadLogoGlobal(t.id, e)} style={{ fontSize: '11px', color: '#94a3b8', maxWidth: '130px' }} />
+                  ) : <div />}
+                  
+                  {/* SELETOR DE CHAVE: A mágica acontece aqui */}
+                  {nivelAcesso === 'mestre' && (
+                    <select 
+                      value={t.chave || 'U'} 
+                      onChange={(e) => atualizarChaveEquipe(t.id, e.target.value)}
+                      style={{ padding: '6px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }}
+                    >
+                      <option value="U">🏆 Chave Única</option>
+                      <option value="A">🅰️ Grupo A</option>
+                      <option value="B">🅱️ Grupo B</option>
+                    </select>
+                  )}
+                </div>
+
               </div>
             ))}
           </div>
@@ -651,7 +678,6 @@ export default function HubTorneio() {
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
             ) : null}
 
-            {/* PAINEL DE EDIÇÃO (MESÁRIO VÊ SÓ FINALIZADOS, MESTRE VÊ TUDO) */}
             <div className={styles.card} style={{ marginTop: '20px', borderColor: nivelAcesso === 'mestre' ? '#ef4444' : '#334155' }}>
               <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>{nivelAcesso === 'mestre' ? '👑 MODO MESTRE: Editar Qualquer Partida' : '✏️ Editar Partidas Finalizadas'}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
