@@ -26,11 +26,10 @@ export default function HubTorneio() {
   const [senha, setSenha] = useState('');
   
   const [nivelAcesso, setNivelAcesso] = useState<'visitante' | 'mesario' | 'mestre'>('visitante');
-  
   const [timesMap, setTimesMap] = useState<Record<string, TimeDb>>({});
   const [isUpdatingScore, setIsUpdatingScore] = useState(false);
   
-  const [modoEdicaoTabela, setModoEdicaoTabela] = useState(false);
+  const [mostrarEditorEquipes, setMostrarEditorEquipes] = useState(false);
   const [partidaEditando, setPartidaEditando] = useState<string | null>(null);
   const [editPontosA, setEditPontosA] = useState(0);
   const [editPontosB, setEditPontosB] = useState(0);
@@ -40,6 +39,7 @@ export default function HubTorneio() {
   const [editMestreTimeA, setEditMestreTimeA] = useState<string>('');
   const [editMestreTimeB, setEditMestreTimeB] = useState<string>('');
   const [editMestreStatus, setEditMestreStatus] = useState<string>('');
+  const [editHorario, setEditHorario] = useState<string>('');
 
   useEffect(() => {
     if (!torneioId) return;
@@ -88,10 +88,12 @@ export default function HubTorneio() {
         alert('Senha incorreta! Acesso negado.'); 
     }
   };
-  
-  const atualizarHorario = async (jogoId: string, novoHorario: string) => {
-    if (!novoHorario) return;
-    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), { horario: novoHorario });
+
+  const fazerLogout = () => {
+    setNivelAcesso('visitante');
+    setSenha('');
+    setPartidaEditando(null);
+    setMostrarEditorEquipes(false);
   };
 
   const atualizarNomeEquipe = async (timeId: string, novoNome: string) => {
@@ -124,7 +126,6 @@ export default function HubTorneio() {
     reader.readAsDataURL(file);
   };
 
-  // NOVO: Função para o Mestre forçar a mudança de Grupo (Chave) da equipe
   const atualizarChaveEquipe = async (timeId: string, novaChave: string) => {
     if (!novaChave || timesMap[timeId].chave === novaChave) return; 
     const updates: Record<string, string> = {};
@@ -215,17 +216,24 @@ export default function HubTorneio() {
   const abrirEdicao = (p: Partida) => {
     setPartidaEditando(p.id); setEditPontosA(p.pontosA); setEditPontosB(p.pontosB);
     setEditSetsA(p.setsVencidosA || 0); setEditSetsB(p.setsVencidosB || 0);
-    setEditMestreTimeA(p.timeA.id); setEditMestreTimeB(p.timeB.id); setEditMestreStatus(p.status);
+    setEditMestreTimeA(p.timeA.id); setEditMestreTimeB(p.timeB.id); 
+    setEditMestreStatus(p.status); setEditHorario(p.horario);
   };
 
-  const salvarEdicaoMestre = async (jogoId: string) => {
-    const timeAAtualizado = timesMap[editMestreTimeA];
-    const timeBAtualizado = timesMap[editMestreTimeB];
-    
+  const salvarEdicao = async (jogoId: string) => {
+    const jogoOriginal = partidas.find(p => p.id === jogoId);
+    if (!jogoOriginal) return;
+
+    const timeAAtualizado = nivelAcesso === 'mestre' && editMestreTimeA ? timesMap[editMestreTimeA] : jogoOriginal.timeA;
+    const timeBAtualizado = nivelAcesso === 'mestre' && editMestreTimeB ? timesMap[editMestreTimeB] : jogoOriginal.timeB;
+    const statusAtualizado = nivelAcesso === 'mestre' && editMestreStatus ? editMestreStatus : jogoOriginal.status;
+    const horarioAtualizado = nivelAcesso === 'mestre' && editHorario ? editHorario : jogoOriginal.horario;
+
     const dadosAtualizados = { 
         pontosA: editPontosA, pontosB: editPontosB, 
         setsVencidosA: editSetsA, setsVencidosB: editSetsB,
-        timeA: timeAAtualizado, timeB: timeBAtualizado, status: editMestreStatus
+        timeA: timeAAtualizado, timeB: timeBAtualizado, 
+        status: statusAtualizado, horario: horarioAtualizado
     };
 
     await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), dadosAtualizados);
@@ -429,7 +437,7 @@ export default function HubTorneio() {
   };
 
   const trocarAba = (novaAba: 'jogos' | 'classificacao' | 'live' | 'admin') => {
-    setAbaAtiva(novaAba); setModoEdicaoTabela(false); 
+    setAbaAtiva(novaAba); setPartidaEditando(null); setMostrarEditorEquipes(false);
   };
 
   const jogoAtual = partidas.find(p => p.status === 'em_andamento'); 
@@ -469,53 +477,6 @@ export default function HubTorneio() {
 
   const renderAbaJogos = () => (
     <div className={`${abaAtiva === 'jogos' ? '' : styles.hideOnScreen} ${styles.showOnPrint}`}>
-      {nivelAcesso !== 'visitante' && statusTorneio !== 'aguardando_sorteio' && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <button onClick={() => setModoEdicaoTabela(!modoEdicaoTabela)} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', color: 'white', backgroundColor: modoEdicaoTabela ? '#ef4444' : '#3b82f6', transition: '0.2s' }}>
-            {modoEdicaoTabela ? '❌ Fechar Modo de Edição' : '✏️ Editar Nomes, Logos e Horários'}
-          </button>
-        </div>
-      )}
-
-      {/* NOVO: BLOCO GLOBAL AGORA COM SELETOR DE CHAVES PARA O MESTRE */}
-      {modoEdicaoTabela && (
-        <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
-          <h3 style={{ color: '#38bdf8', marginBottom: '5px' }}>🛠️ Editor Global de Equipes</h3>
-          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>Altere aqui para atualizar automaticamente em toda a tabela, classificação e telão.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
-            {Object.values(timesMap).map(t => (
-              <div key={t.id} style={{ backgroundColor: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {regras?.mostrarLogos && <Image src={t.escudoUrl} alt="Logo" width={40} height={40} style={{ objectFit: 'contain', backgroundColor: 'white', borderRadius: '50%' }} />}
-                  <input type="text" defaultValue={t.nome} onBlur={(e) => atualizarNomeEquipe(t.id, e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#334155', color: 'white', border: 'none', borderRadius: '4px', outline: 'none' }} />
-                </div>
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  {regras?.mostrarLogos ? (
-                    <input type="file" accept="image/*" onChange={(e) => handleUploadLogoGlobal(t.id, e)} style={{ fontSize: '11px', color: '#94a3b8', maxWidth: '130px' }} />
-                  ) : <div />}
-                  
-                  {/* SELETOR DE CHAVE: A mágica acontece aqui */}
-                  {nivelAcesso === 'mestre' && (
-                    <select 
-                      value={t.chave || 'U'} 
-                      onChange={(e) => atualizarChaveEquipe(t.id, e.target.value)}
-                      style={{ padding: '6px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="U">🏆 Chave Única</option>
-                      <option value="A">🅰️ Grupo A</option>
-                      <option value="B">🅱️ Grupo B</option>
-                    </select>
-                  )}
-                </div>
-
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
       <div className={styles.listaJogos}>
         {partidas.map((jogo) => {
@@ -529,9 +490,7 @@ export default function HubTorneio() {
             <div key={jogo.id} className={styles.cardJogo}>
               <div className={styles.cardTop}>
                 <span className={styles.jogoNumero}>{jogo.fase === 'final' ? '🏆 GRANDE FINAL' : jogo.fase === 'terceiro_lugar' ? '🥉 Disputa 3º' : jogo.fase === 'semifinal' ? `Semifinal` : `Jogo ${num}`}</span>
-                {modoEdicaoTabela ? (
-                  <input type="time" defaultValue={jogo.horario} onBlur={(e) => atualizarHorario(jogo.id, e.target.value)} style={{ padding: '2px 5px', backgroundColor: '#334155', color: '#38bdf8', border: '1px solid #38bdf8', borderRadius: '4px', fontWeight: 'bold', outline: 'none' }} />
-                ) : ( <span className={styles.horario}>{jogo.horario}</span> )}
+                <span className={styles.horario}>{jogo.horario}</span>
               </div>
               <div className={styles.confronto}>
                 <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
@@ -650,6 +609,44 @@ export default function HubTorneio() {
           <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa ou Mestre" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
         ) : (
           <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', backgroundColor: '#1e293b', padding: '10px 20px', borderRadius: '12px', border: '1px solid #334155' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', color: nivelAcesso === 'mestre' ? '#ef4444' : '#38bdf8' }}>Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}</h2>
+              </div>
+              <button onClick={fazerLogout} style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Sair</button>
+            </div>
+
+            {/* EDITOR GLOBAL DE EQUIPES (EXCLUSIVO MESTRE) */}
+            {nivelAcesso === 'mestre' && statusTorneio !== 'aguardando_sorteio' && (
+              <div style={{ marginBottom: '20px' }}>
+                <button onClick={() => setMostrarEditorEquipes(!mostrarEditorEquipes)} style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>
+                  {mostrarEditorEquipes ? '❌ Fechar Editor Global de Equipes' : '🛠️ Abrir Editor Global de Equipes (Nomes, Logos e Chaves)'}
+                </button>
+                
+                {mostrarEditorEquipes && (
+                  <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '12px', marginTop: '10px' }}>
+                    <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px', textAlign: 'center' }}>Altere aqui para atualizar automaticamente em toda a tabela, classificação e telão.</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
+                      {Object.values(timesMap).map(t => (
+                        <div key={t.id} style={{ backgroundColor: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {regras?.mostrarLogos && <Image src={t.escudoUrl} alt="Logo" width={40} height={40} style={{ objectFit: 'contain', backgroundColor: 'white', borderRadius: '50%' }} />}
+                            <input type="text" defaultValue={t.nome} onBlur={(e) => atualizarNomeEquipe(t.id, e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#334155', color: 'white', border: 'none', borderRadius: '4px', outline: 'none' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            {regras?.mostrarLogos ? ( <input type="file" accept="image/*" onChange={(e) => handleUploadLogoGlobal(t.id, e)} style={{ fontSize: '11px', color: '#94a3b8', maxWidth: '130px' }} /> ) : <div />}
+                            <select value={t.chave || 'U'} onChange={(e) => atualizarChaveEquipe(t.id, e.target.value)} style={{ padding: '6px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }}>
+                              <option value="U">🏆 Chave Única</option><option value="A">🅰️ Grupo A</option><option value="B">🅱️ Grupo B</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {jogoAtual && tA_UI && tB_UI ? (
               <div className={styles.card}>
                 <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
@@ -685,15 +682,19 @@ export default function HubTorneio() {
                   <div key={p.id} style={{ border: `1px solid ${nivelAcesso === 'mestre' ? '#ef4444' : '#334155'}`, padding: '10px', borderRadius: '8px', background: '#0f172a' }}>
                     {partidaEditando === p.id ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        
+                        {/* CONTROLES MESTRE (TEMPO E STATUS) */}
                         {nivelAcesso === 'mestre' && (
                             <div style={{display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '10px'}}>
-                                <select value={editMestreStatus} onChange={e => setEditMestreStatus(e.target.value)} style={{padding: '5px', borderRadius: '4px', backgroundColor: '#334155', color: 'white'}}>
+                                <input type="time" value={editHorario} onChange={e => setEditHorario(e.target.value)} style={{padding: '5px', borderRadius: '4px', backgroundColor: '#334155', color: '#38bdf8', border: '1px solid #38bdf8', outline: 'none', fontWeight: 'bold'}} />
+                                <select value={editMestreStatus} onChange={e => setEditMestreStatus(e.target.value)} style={{padding: '5px', borderRadius: '4px', backgroundColor: '#334155', color: 'white', border: 'none', outline: 'none'}}>
                                     <option value="pendente">Status: Pendente</option>
                                     <option value="em_andamento">Status: Em Andamento</option>
                                     <option value="finalizado">Status: Finalizado</option>
                                 </select>
                             </div>
                         )}
+                        
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div className={styles.textCenter} style={{ flex: 1 }}>
                             {nivelAcesso === 'mestre' ? (
@@ -705,7 +706,9 @@ export default function HubTorneio() {
                             <input type="number" value={editPontosA} onChange={e => setEditPontosA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
                             {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsA} onChange={e => setEditSetsA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px' }} /></>}
                           </div>
+                          
                           <span style={{ fontWeight: 'bold', color: '#475569' }}>X</span>
+                          
                           <div className={styles.textCenter} style={{ flex: 1 }}>
                             {nivelAcesso === 'mestre' ? (
                                 <select value={editMestreTimeB} onChange={e => setEditMestreTimeB(e.target.value)} style={{width: '90%', padding: '5px', marginBottom: '5px', borderRadius: '4px'}}>
@@ -717,9 +720,10 @@ export default function HubTorneio() {
                             {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsB} onChange={e => setEditSetsB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px' }} /></>}
                           </div>
                         </div>
+
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
-                          <button onClick={() => setPartidaEditando(null)} style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '4px' }}>Cancelar</button>
-                          <button onClick={() => salvarEdicaoMestre(p.id)} style={{ padding: '8px 16px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Salvar Modo {nivelAcesso === 'mestre' ? 'Mestre' : 'Correção'}</button>
+                          <button onClick={() => setPartidaEditando(null)} style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
+                          <button onClick={() => salvarEdicao(p.id)} style={{ padding: '8px 16px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Modo {nivelAcesso === 'mestre' ? 'Mestre' : 'Correção'}</button>
                         </div>
                       </div>
                     ) : (
