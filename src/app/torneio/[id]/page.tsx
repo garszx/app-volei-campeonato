@@ -24,7 +24,9 @@ export default function HubTorneio() {
   const [statusTorneio, setStatusTorneio] = useState<string>('');
   const [regras, setRegras] = useState<Regras | null>(null);
   const [senha, setSenha] = useState('');
-  const [autenticado, setAutenticado] = useState(false);
+  
+  const [nivelAcesso, setNivelAcesso] = useState<'visitante' | 'mesario' | 'mestre'>('visitante');
+  
   const [timesMap, setTimesMap] = useState<Record<string, TimeDb>>({});
   const [isUpdatingScore, setIsUpdatingScore] = useState(false);
   
@@ -34,6 +36,10 @@ export default function HubTorneio() {
   const [editPontosB, setEditPontosB] = useState(0);
   const [editSetsA, setEditSetsA] = useState(0);
   const [editSetsB, setEditSetsB] = useState(0);
+
+  const [editMestreTimeA, setEditMestreTimeA] = useState<string>('');
+  const [editMestreTimeB, setEditMestreTimeB] = useState<string>('');
+  const [editMestreStatus, setEditMestreStatus] = useState<string>('');
 
   useEffect(() => {
     if (!torneioId) return;
@@ -74,12 +80,15 @@ export default function HubTorneio() {
 
   const handleLogin = (e: FormEvent) => { 
     e.preventDefault(); 
-    const senhaCorreta = regras?.senhaAdmin || 'volei2026';
-    if (senha === senhaCorreta) setAutenticado(true); 
-    else alert('Senha incorreta! Acesso negado.'); 
+    if (senha === 'mestre') {
+        setNivelAcesso('mestre');
+    } else if (senha === (regras?.senhaAdmin || 'volei2026')) {
+        setNivelAcesso('mesario');
+    } else {
+        alert('Senha incorreta! Acesso negado.'); 
+    }
   };
   
-  /* ====================== FUNÇÕES DE EDIÇÃO RÁPIDA (MESA) ====================== */
   const atualizarHorario = async (jogoId: string, novoHorario: string) => {
     if (!novoHorario) return;
     await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), { horario: novoHorario });
@@ -114,7 +123,6 @@ export default function HubTorneio() {
     };
     reader.readAsDataURL(file);
   };
-  /* ============================================================================== */
 
   const iniciarPartida = async (id: string) => { await update(ref(db, `torneios/${torneioId}/partidas/${id}`), { status: 'em_andamento' }); };
   
@@ -199,13 +207,24 @@ export default function HubTorneio() {
   const abrirEdicao = (p: Partida) => {
     setPartidaEditando(p.id); setEditPontosA(p.pontosA); setEditPontosB(p.pontosB);
     setEditSetsA(p.setsVencidosA || 0); setEditSetsB(p.setsVencidosB || 0);
+    setEditMestreTimeA(p.timeA.id); setEditMestreTimeB(p.timeB.id); setEditMestreStatus(p.status);
   };
 
-  const salvarEdicao = async (jogoId: string) => {
-    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), { pontosA: editPontosA, pontosB: editPontosB, setsVencidosA: editSetsA, setsVencidosB: editSetsB });
-    const novasPartidas = partidas.map(p => p.id === jogoId ? { ...p, pontosA: editPontosA, pontosB: editPontosB, setsVencidosA: editSetsA, setsVencidosB: editSetsB } : p);
+  const salvarEdicaoMestre = async (jogoId: string) => {
+    const timeAAtualizado = timesMap[editMestreTimeA];
+    const timeBAtualizado = timesMap[editMestreTimeB];
+    
+    const dadosAtualizados = { 
+        pontosA: editPontosA, pontosB: editPontosB, 
+        setsVencidosA: editSetsA, setsVencidosB: editSetsB,
+        timeA: timeAAtualizado, timeB: timeBAtualizado, status: editMestreStatus
+    };
+
+    await update(ref(db, `torneios/${torneioId}/partidas/${jogoId}`), dadosAtualizados);
+    
+    const novasPartidas = partidas.map(p => p.id === jogoId ? { ...p, ...dadosAtualizados } : p);
     await recalcularTabela(novasPartidas); setPartidaEditando(null);
-    alert("Partida corrigida e tabela de classificação recalculada!");
+    alert("Alterações aplicadas e tabela recalculada!");
   };
 
   const encerrarAcao = async (jogo: Partida) => {
@@ -251,6 +270,64 @@ export default function HubTorneio() {
       const novasPartidas = partidas.map(p => p.id === jogo.id ? matchParaRecalculo : p);
       await recalcularTabela(novasPartidas);
     }
+  };
+
+  const gerarTabelaDinamica = async () => {
+    if (timesBase.length < 3) return;
+    const isDuasChaves = timesBase.length >= 6;
+    const timesSorteados = [...timesBase];
+    for (let i = timesSorteados.length - 1; i > 0; i--) { 
+        const j = Math.floor(Math.random() * (i + 1)); 
+        [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; 
+    }
+    const updates: Record<string, string> = {};
+    
+    const gerarConfrontos = (grupoTimes: Time[]) => {
+        const lista = [...grupoTimes];
+        if (lista.length % 2 !== 0) lista.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
+        const confrontos = [];
+        for (let r = 0; r < lista.length - 1; r++) {
+            for (let i = 0; i < lista.length / 2; i++) {
+                const t1 = lista[i]; const t2 = lista[lista.length - 1 - i];
+                if (t1.id !== 'folga_ficticia' && t2.id !== 'folga_ficticia') confrontos.push([t1, t2]);
+            }
+            const ultimo = lista.pop()!; lista.splice(1, 0, ultimo);
+        }
+        if (regras?.turno === 'ida_volta') {
+            const tamanho = confrontos.length;
+            for(let i=0; i<tamanho; i++) confrontos.push([confrontos[i][1], confrontos[i][0]]);
+        }
+        return confrontos;
+    };
+
+    const confrontosFinais = [];
+    if (isDuasChaves) {
+        const meio = Math.ceil(timesSorteados.length / 2);
+        const grupoA = timesSorteados.slice(0, meio); const grupoB = timesSorteados.slice(meio);
+        grupoA.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'A');
+        grupoB.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'B');
+        const confA = gerarConfrontos(grupoA); const confB = gerarConfrontos(grupoB);
+        const maxLen = Math.max(confA.length, confB.length);
+        for(let i=0; i<maxLen; i++){ if(confA[i]) confrontosFinais.push(confA[i]); if(confB[i]) confrontosFinais.push(confB[i]); }
+    } else {
+        timesSorteados.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'U');
+        confrontosFinais.push(...gerarConfrontos(timesSorteados));
+    }
+    
+    const novasPartidas: Record<string, Partida> = {};
+    const [horaStr, minStr] = (regras?.horarioInicio || '08:00').split(':');
+    let minAtual = parseInt(horaStr) * 60 + parseInt(minStr);
+    
+    confrontosFinais.forEach((par, index) => {
+        const h = Math.floor(minAtual / 60) % 24; const m = minAtual % 60;
+        novasPartidas[`jogo_${index + 1}`] = {
+            id: `jogo_${index + 1}`, fase: 'grupos', horario: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`, status: 'pendente',
+            pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: par[0] as Time, timeB: par[1] as Time
+        };
+        minAtual += (regras?.intervaloMinutos || 45);
+    });
+    updates[`torneios/${torneioId}/config/status`] = 'fase_grupos';
+    await update(ref(db), updates); await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
   };
 
   const gerarSemifinais = async () => {
@@ -326,78 +403,6 @@ export default function HubTorneio() {
     }, 1000);
   };
 
-  const gerarTabelaDinamica = async () => {
-    if (timesBase.length < 3) return;
-    const isDuasChaves = timesBase.length >= 6;
-    
-    const timesSorteados = [...timesBase];
-    for (let i = timesSorteados.length - 1; i > 0; i--) { 
-        const j = Math.floor(Math.random() * (i + 1)); 
-        [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; 
-    }
-
-    const updates: Record<string, string> = {};
-    
-    const gerarConfrontos = (grupoTimes: Time[]) => {
-        const lista = [...grupoTimes];
-        if (lista.length % 2 !== 0) lista.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
-        const confrontos = [];
-        for (let r = 0; r < lista.length - 1; r++) {
-            for (let i = 0; i < lista.length / 2; i++) {
-                const t1 = lista[i]; const t2 = lista[lista.length - 1 - i];
-                if (t1.id !== 'folga_ficticia' && t2.id !== 'folga_ficticia') confrontos.push([t1, t2]);
-            }
-            const ultimo = lista.pop()!; lista.splice(1, 0, ultimo);
-        }
-        if (regras?.turno === 'ida_volta') {
-            const tamanho = confrontos.length;
-            for(let i=0; i<tamanho; i++) confrontos.push([confrontos[i][1], confrontos[i][0]]);
-        }
-        return confrontos;
-    };
-
-    const confrontosFinais = [];
-    if (isDuasChaves) {
-        const meio = Math.ceil(timesSorteados.length / 2);
-        const grupoA = timesSorteados.slice(0, meio);
-        const grupoB = timesSorteados.slice(meio);
-        
-        grupoA.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'A');
-        grupoB.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'B');
-        
-        const confA = gerarConfrontos(grupoA);
-        const confB = gerarConfrontos(grupoB);
-        const maxLen = Math.max(confA.length, confB.length);
-        
-        for(let i=0; i<maxLen; i++){
-            if(confA[i]) confrontosFinais.push(confA[i]);
-            if(confB[i]) confrontosFinais.push(confB[i]);
-        }
-    } else {
-        timesSorteados.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'U');
-        confrontosFinais.push(...gerarConfrontos(timesSorteados));
-    }
-
-    const novasPartidas: Record<string, Partida> = {};
-    const [horaStr, minStr] = regras?.horarioInicio.split(':') || ['08', '00'];
-    let minAtual = parseInt(horaStr) * 60 + parseInt(minStr);
-    
-    confrontosFinais.forEach((par, index) => {
-        const h = Math.floor(minAtual / 60) % 24; const m = minAtual % 60;
-        const horarioText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        minAtual += (regras?.intervaloMinutos || 45);
-        
-        novasPartidas[`jogo_${index + 1}`] = {
-            id: `jogo_${index + 1}`, fase: 'grupos', horario: horarioText, status: 'pendente',
-            pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: par[0] as Time, timeB: par[1] as Time
-        };
-    });
-
-    updates[`torneios/${torneioId}/config/status`] = 'fase_grupos';
-    await update(ref(db), updates);
-    await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
-  };
-
   const baixarQRCode = async () => {
     const urlParams = typeof window !== 'undefined' ? window.location.href : '';
     const urlApi = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(urlParams)}`;
@@ -416,15 +421,28 @@ export default function HubTorneio() {
   };
 
   const trocarAba = (novaAba: 'jogos' | 'classificacao' | 'live' | 'admin') => {
-    setAbaAtiva(novaAba);
-    setModoEdicaoTabela(false); // Reseta o modo edição de forma síncrona pelo evento de clique
+    setAbaAtiva(novaAba); setModoEdicaoTabela(false); 
   };
 
   const jogoAtual = partidas.find(p => p.status === 'em_andamento'); 
   const proximoJogo = partidas.find(p => p.status === 'pendente');
-  const formatoPartidaAtual = jogoAtual?.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
-  const isMelhorDe3Shared = formatoPartidaAtual?.includes('melhor_de_3');
-  const isTieBreakShared = isMelhorDe3Shared && jogoAtual?.setsVencidosA === 1 && jogoAtual?.setsVencidosB === 1;
+
+  // LÓGICA DE INVERSÃO DE LADOS (FIVB)
+  const verificarInversaoFIVB = (jogo: Partida | undefined): boolean => {
+    if (!jogo) return false;
+    const formatoPartida = jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
+    const isMd3 = formatoPartida?.includes('melhor_de_3');
+    if (!isMd3) return false;
+
+    const setsJogados = (jogo.setsVencidosA || 0) + (jogo.setsVencidosB || 0);
+    if (setsJogados === 1) return true;
+    if (setsJogados === 2) {
+        const maiorPontuacao = Math.max(jogo.pontosA, jogo.pontosB);
+        if (maiorPontuacao >= 8) return true;
+    }
+    return false;
+  };
+  const isInvertido = verificarInversaoFIVB(jogoAtual);
 
   const renderHeader = () => (
     <div className={styles.header}>
@@ -433,7 +451,7 @@ export default function HubTorneio() {
         <button className={`${styles.tabBtn} ${abaAtiva === 'jogos' ? styles.tabBtnActive : ''}`} onClick={() => trocarAba('jogos')}>Tabela de Jogos</button>
         <button className={`${styles.tabBtn} ${abaAtiva === 'classificacao' ? styles.tabBtnActive : ''}`} onClick={() => trocarAba('classificacao')}>Classificação</button>
         <button className={`${styles.tabBtn} ${abaAtiva === 'live' ? styles.tabBtnActive : ''}`} onClick={() => trocarAba('live')}>Telão Ao Vivo</button>
-        <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => trocarAba('admin')}>⚙️ Mesa</button>
+        <button className={`${styles.tabBtn} ${abaAtiva === 'admin' ? styles.tabBtnAdminActive : ''}`} onClick={() => trocarAba('admin')}>⚙️ Mesa {nivelAcesso === 'mestre' && '👑'}</button>
       </div>
       {statusTorneio === 'aguardando_sorteio' && abaAtiva === 'jogos' && (
         <button className={`${styles.btnGerar} no-print`} onClick={gerarTabelaDinamica}>Embaralhar e Gerar Grupos</button>
@@ -443,20 +461,14 @@ export default function HubTorneio() {
 
   const renderAbaJogos = () => (
     <div className={`${abaAtiva === 'jogos' ? '' : styles.hideOnScreen} ${styles.showOnPrint}`}>
-      
-      {/* PAINEL DE CONTROLE DE EDIÇÃO (SÓ APARECE SE ESTIVER LOGADO NA MESA) */}
-      {autenticado && statusTorneio !== 'aguardando_sorteio' && (
+      {nivelAcesso !== 'visitante' && statusTorneio !== 'aguardando_sorteio' && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <button 
-            onClick={() => setModoEdicaoTabela(!modoEdicaoTabela)}
-            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', color: 'white', backgroundColor: modoEdicaoTabela ? '#ef4444' : '#3b82f6', transition: '0.2s' }}
-          >
+          <button onClick={() => setModoEdicaoTabela(!modoEdicaoTabela)} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', color: 'white', backgroundColor: modoEdicaoTabela ? '#ef4444' : '#3b82f6', transition: '0.2s' }}>
             {modoEdicaoTabela ? '❌ Fechar Modo de Edição' : '✏️ Editar Nomes, Logos e Horários'}
           </button>
         </div>
       )}
 
-      {/* BLOCO DE EDIÇÃO DOS TIMES (INLINE) */}
       {modoEdicaoTabela && (
         <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
           <h3 style={{ color: '#38bdf8', marginBottom: '5px' }}>🛠️ Editor Global de Equipes</h3>
@@ -490,14 +502,9 @@ export default function HubTorneio() {
             <div key={jogo.id} className={styles.cardJogo}>
               <div className={styles.cardTop}>
                 <span className={styles.jogoNumero}>{jogo.fase === 'final' ? '🏆 GRANDE FINAL' : jogo.fase === 'terceiro_lugar' ? '🥉 Disputa 3º' : jogo.fase === 'semifinal' ? `Semifinal` : `Jogo ${num}`}</span>
-                
-                {/* INPUT DE HORÁRIO DINÂMICO SE ESTIVER NO MODO EDIÇÃO */}
                 {modoEdicaoTabela ? (
                   <input type="time" defaultValue={jogo.horario} onBlur={(e) => atualizarHorario(jogo.id, e.target.value)} style={{ padding: '2px 5px', backgroundColor: '#334155', color: '#38bdf8', border: '1px solid #38bdf8', borderRadius: '4px', fontWeight: 'bold', outline: 'none' }} />
-                ) : (
-                  <span className={styles.horario}>{jogo.horario}</span>
-                )}
-
+                ) : ( <span className={styles.horario}>{jogo.horario}</span> )}
               </div>
               <div className={styles.confronto}>
                 <div className={styles.time}>{regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} <span>{jogo.timeA.nome}</span></div>
@@ -564,118 +571,142 @@ export default function HubTorneio() {
     );
   };
 
-  const renderAbaLive = () => (
-    <div className={`${abaAtiva === 'live' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
-      <div className={styles.liveContainer}>
-        {jogoAtual ? (
-          <>
-            <div className={styles.headerLive}><span className={styles.liveBadge}>AO VIVO</span> <span className={styles.horarioBadge}>{jogoAtual.horario}</span></div>
-            {isMelhorDe3Shared && <div className={styles.setsInfo}>Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong></div>}
-            <div className={styles.placarLive}>
-              <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeA.escudoUrl} alt="A" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeA.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosA}</span></div>
-              <div className={styles.vsCard}><span className={styles.vsText}>X</span></div>
-              <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={jogoAtual.timeB.escudoUrl} alt="B" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{jogoAtual.timeB.nome}</h3> <span className={styles.pontuacao}>{jogoAtual.pontosB}</span></div>
+  const renderAbaLive = () => {
+    const tA_Live = isInvertido && jogoAtual ? jogoAtual.timeB : jogoAtual?.timeA;
+    const tB_Live = isInvertido && jogoAtual ? jogoAtual.timeA : jogoAtual?.timeB;
+    const ptsA_Live = isInvertido && jogoAtual ? jogoAtual.pontosB : jogoAtual?.pontosA;
+    const ptsB_Live = isInvertido && jogoAtual ? jogoAtual.pontosA : jogoAtual?.pontosB;
+    const isMd3Shared = (jogoAtual?.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
+
+    return (
+      <div className={`${abaAtiva === 'live' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
+        <div className={styles.liveContainer}>
+          {jogoAtual && tA_Live && tB_Live ? (
+            <>
+              <div className={styles.headerLive}><span className={styles.liveBadge}>AO VIVO</span> <span className={styles.horarioBadge}>{jogoAtual.horario}</span></div>
+              {isMd3Shared && <div className={styles.setsInfo}>Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong></div>}
+              <div className={styles.placarLive}>
+                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={tA_Live.escudoUrl} alt="A" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{tA_Live.nome}</h3> <span className={styles.pontuacao}>{ptsA_Live}</span></div>
+                <div className={styles.vsCard}><span className={styles.vsText}>X</span></div>
+                <div className={styles.timeCol}>{regras?.mostrarLogos && <div className={styles.escudoWrapper}><Image src={tB_Live.escudoUrl} alt="B" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} /></div>}<h3 className={styles.timeNomeLive}>{tB_Live.nome}</h3> <span className={styles.pontuacao}>{ptsB_Live}</span></div>
+              </div>
+            </>
+          ) : proximoJogo ? (
+              <div className={styles.mensagemEspera}>
+              <h2 className={styles.nextGameTitle}>Próxima Partida - {proximoJogo.horario}</h2>
+              <div className={styles.nextGameContainer}>
+                  <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeA.nome}</p></div>
+                  <span className={styles.vsText}>X</span>
+                  <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeB.nome}</p></div>
+              </div>
             </div>
-          </>
-        ) : proximoJogo ? (
-            <div className={styles.mensagemEspera}>
-            <h2 className={styles.nextGameTitle}>Próxima Partida - {proximoJogo.horario}</h2>
-            <div className={styles.nextGameContainer}>
-                <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeA.nome}</p></div>
-                <span className={styles.vsText}>X</span>
-                <div className={styles.textCenter}>{regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} className={styles.imageContain} />}<p className={styles.boldText}>{proximoJogo.timeB.nome}</p></div>
-            </div>
-          </div>
-        ) : (<div className={styles.mensagemEspera}><h2>Torneio Finalizado! 🏆</h2></div>)}
+          ) : (<div className={styles.mensagemEspera}><h2>Torneio Finalizado! 🏆</h2></div>)}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAbaAdmin = () => {
     const isMd3Geral = regras?.formatoGrupos?.includes('melhor_de_3') || regras?.formatoFinais?.includes('melhor_de_3');
     const urlAtual = typeof window !== 'undefined' ? window.location.href : '';
     
+    const tA_UI = isInvertido && jogoAtual ? jogoAtual.timeB : jogoAtual?.timeA;
+    const tB_UI = isInvertido && jogoAtual ? jogoAtual.timeA : jogoAtual?.timeB;
+    const ptsA_UI = isInvertido && jogoAtual ? jogoAtual.pontosB : jogoAtual?.pontosA;
+    const ptsB_UI = isInvertido && jogoAtual ? jogoAtual.pontosA : jogoAtual?.pontosB;
+    const tagLeft = isInvertido ? 'B' : 'A';
+    const tagRight = isInvertido ? 'A' : 'B';
+
     return (
       <div className={`${abaAtiva === 'admin' ? '' : styles.hideOnScreen} ${styles.hideOnPrint}`}>
-        {!autenticado ? (
-          <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
+        {nivelAcesso === 'visitante' ? (
+          <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa ou Mestre" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
         ) : (
           <div>
-            {jogoAtual ? (
+            {jogoAtual && tA_UI && tB_UI ? (
               <div className={styles.card}>
                 <h2 className={styles.adminGameTitle}>Jogo em Andamento - {jogoAtual.horario}</h2>
-                {isMelhorDe3Shared && (
-                  <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3>{isTieBreakShared && <span className={styles.tieBreakBadge}>TIE-BREAK</span>}</div>
-                )}
+                {isInvertido && <span style={{display: 'block', textAlign: 'center', backgroundColor: '#f59e0b', color: 'black', fontWeight: 'bold', padding: '5px', borderRadius: '8px', marginBottom: '10px', fontSize: '12px'}}>LADOS INVERTIDOS (REGRA FIVB)</span>}
+                <div className={styles.textCenter}><h3 className={styles.adminSetsTitle}>Sets: {jogoAtual.setsVencidosA || 0} x {jogoAtual.setsVencidosB || 0}</h3></div>
+                
                 <div className={styles.scoreBoard}>
-                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeA.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosA}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'A', -1); }}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'A', 1); }}>+</button></div></div>
+                  <div className={styles.teamColAdmin}><h3>{tA_UI.nome}</h3><span className={styles.scoreText}>{ptsA_UI}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, tagLeft, -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, tagLeft, 1)}>+</button></div></div>
                   <h2 className={styles.adminVsText}>X</h2>
-                  <div className={styles.teamColAdmin}><h3>{jogoAtual.timeB.nome}</h3><span className={styles.scoreText}>{jogoAtual.pontosB}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'B', -1); }}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={(e) => { e.preventDefault(); atualizarPlacar(jogoAtual.id, 'B', 1); }}>+</button></div></div>
+                  <div className={styles.teamColAdmin}><h3>{tB_UI.nome}</h3><span className={styles.scoreText}>{ptsB_UI}</span><div className={styles.controls}><button className={`${styles.btnScore} ${styles.btnMinus}`} onClick={() => atualizarPlacar(jogoAtual.id, tagRight, -1)}>-</button><button className={`${styles.btnScore} ${styles.btnPlus}`} onClick={() => atualizarPlacar(jogoAtual.id, tagRight, 1)}>+</button></div></div>
                 </div>
-                <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>{isMelhorDe3Shared ? 'Encerrar Set' : 'Encerrar Partida'}</button>
+                <button className={styles.btnEnd} onClick={() => encerrarAcao(jogoAtual)}>Encerrar Set/Partida</button>
               </div>
             ) : proximoJogo ? (
-              <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar</button></div>
+              <div className={`${styles.card} ${styles.textCenter}`}><h2>Próxima Partida: {proximoJogo.horario}</h2><h3 className={styles.adminNextGameMatch}>{proximoJogo.timeA.nome} X {proximoJogo.timeB.nome}</h3><button className={styles.btnPrimary} onClick={() => iniciarPartida(proximoJogo.id)}>Iniciar Jogo</button></div>
             ) : statusTorneio === 'fase_grupos' ? (
               <div className={`${styles.card} ${styles.textCenter}`}>
                 <h2 style={{ marginBottom: '20px' }}>Fase de Grupos Encerrada!</h2>
-                <p style={{ color: '#94a3b8', marginBottom: '20px', fontSize: '14px' }}>Escolha como deseja prosseguir com a competição:</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  {timesBase.length >= 4 && (
-                    <button className={styles.btnPrimary} onClick={gerarSemifinais}>🏆 Avançar para Semifinais</button>
-                  )}
-                  {timesBase.length >= 3 && (
-                    <button className={styles.btnPrimary} style={{ backgroundColor: '#3b82f6' }} onClick={gerarFinalDireta}>🥇 Gerar Grande Final Direta (1º x 2º)</button>
-                  )}
+                  {timesBase.length >= 4 && ( <button className={styles.btnPrimary} onClick={gerarSemifinais}>🏆 Avançar para Semifinais</button> )}
+                  {timesBase.length >= 3 && ( <button className={styles.btnPrimary} style={{ backgroundColor: '#3b82f6' }} onClick={gerarFinalDireta}>🥇 Gerar Grande Final Direta (1º x 2º)</button> )}
                   <button className={styles.btnPrimary} style={{ backgroundColor: '#f59e0b' }} onClick={encerrarCampeonatoPontosCorridos}>🛑 Encerrar e Coroar Campeão</button>
                 </div>
               </div>
             ) : statusTorneio === 'semifinais' ? (
               <div className={`${styles.card} ${styles.textCenter}`}><h2>Semifinais Encerradas!</h2><button className={`${styles.btnPrimary} ${styles.btnWarning}`} onClick={gerarFinais}>Gerar Final</button></div>
-            ) : statusTorneio === 'finais' ? (
-              <div className={`${styles.card} ${styles.textCenter}`}><h2>Torneio Finalizado! 🏆</h2></div>
             ) : null}
 
-            {partidas.some(p => p.status === 'finalizado') && (
-              <div className={styles.card} style={{ marginTop: '20px' }}>
-                <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>✏️ Editar Partidas Finalizadas</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {partidas.filter(p => p.status === 'finalizado').map(p => (
-                    <div key={p.id} style={{ border: '1px solid #334155', padding: '10px', borderRadius: '8px', background: '#0f172a' }}>
-                      {partidaEditando === p.id ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div className={styles.textCenter} style={{ flex: 1 }}>
-                              <p className={styles.boldText}>{p.timeA.nome}</p>
-                              <label style={{ fontSize: '12px', color: '#94a3b8' }}>Pontos</label><br/>
-                              <input type="number" value={editPontosA} onChange={e => setEditPontosA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
-                              {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsA} onChange={e => setEditSetsA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} /></>}
+            {/* PAINEL DE EDIÇÃO (MESÁRIO VÊ SÓ FINALIZADOS, MESTRE VÊ TUDO) */}
+            <div className={styles.card} style={{ marginTop: '20px', borderColor: nivelAcesso === 'mestre' ? '#ef4444' : '#334155' }}>
+              <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>{nivelAcesso === 'mestre' ? '👑 MODO MESTRE: Editar Qualquer Partida' : '✏️ Editar Partidas Finalizadas'}</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {partidas.filter(p => nivelAcesso === 'mestre' ? true : p.status === 'finalizado').map(p => (
+                  <div key={p.id} style={{ border: `1px solid ${nivelAcesso === 'mestre' ? '#ef4444' : '#334155'}`, padding: '10px', borderRadius: '8px', background: '#0f172a' }}>
+                    {partidaEditando === p.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {nivelAcesso === 'mestre' && (
+                            <div style={{display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '10px'}}>
+                                <select value={editMestreStatus} onChange={e => setEditMestreStatus(e.target.value)} style={{padding: '5px', borderRadius: '4px', backgroundColor: '#334155', color: 'white'}}>
+                                    <option value="pendente">Status: Pendente</option>
+                                    <option value="em_andamento">Status: Em Andamento</option>
+                                    <option value="finalizado">Status: Finalizado</option>
+                                </select>
                             </div>
-                            <span style={{ fontWeight: 'bold', color: '#475569' }}>X</span>
-                            <div className={styles.textCenter} style={{ flex: 1 }}>
-                              <p className={styles.boldText}>{p.timeB.nome}</p>
-                              <label style={{ fontSize: '12px', color: '#94a3b8' }}>Pontos</label><br/>
-                              <input type="number" value={editPontosB} onChange={e => setEditPontosB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
-                              {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsB} onChange={e => setEditSetsB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} /></>}
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
-                            <button onClick={() => setPartidaEditando(null)} style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
-                            <button onClick={() => salvarEdicao(p.id)} style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Correção</button>
-                          </div>
-                        </div>
-                      ) : (
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '14px', color: '#94a3b8' }}>Jogo {p.id.split('_')[1]}</span>
-                          <span className={styles.boldText}>{p.timeA.nome} {p.pontosA} x {p.pontosB} {p.timeB.nome}</span>
-                          <button onClick={() => abrirEdicao(p)} style={{ padding: '4px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✏️ Editar</button>
+                          <div className={styles.textCenter} style={{ flex: 1 }}>
+                            {nivelAcesso === 'mestre' ? (
+                                <select value={editMestreTimeA} onChange={e => setEditMestreTimeA(e.target.value)} style={{width: '90%', padding: '5px', marginBottom: '5px', borderRadius: '4px'}}>
+                                    {Object.values(timesMap).map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                                </select>
+                            ) : ( <p className={styles.boldText}>{p.timeA.nome}</p> )}
+                            <br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Pontos</label><br/>
+                            <input type="number" value={editPontosA} onChange={e => setEditPontosA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
+                            {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsA} onChange={e => setEditSetsA(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px' }} /></>}
+                          </div>
+                          <span style={{ fontWeight: 'bold', color: '#475569' }}>X</span>
+                          <div className={styles.textCenter} style={{ flex: 1 }}>
+                            {nivelAcesso === 'mestre' ? (
+                                <select value={editMestreTimeB} onChange={e => setEditMestreTimeB(e.target.value)} style={{width: '90%', padding: '5px', marginBottom: '5px', borderRadius: '4px'}}>
+                                    {Object.values(timesMap).map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                                </select>
+                            ) : ( <p className={styles.boldText}>{p.timeB.nome}</p> )}
+                            <br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Pontos</label><br/>
+                            <input type="number" value={editPontosB} onChange={e => setEditPontosB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
+                            {isMd3Geral && <><br/><label style={{ fontSize: '12px', color: '#94a3b8' }}>Sets</label><br/><input type="number" value={editSetsB} onChange={e => setEditSetsB(Number(e.target.value))} style={{ width: '60px', textAlign: 'center', padding: '5px', borderRadius: '4px' }} /></>}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
+                          <button onClick={() => setPartidaEditando(null)} style={{ padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '4px' }}>Cancelar</button>
+                          <button onClick={() => salvarEdicaoMestre(p.id)} style={{ padding: '8px 16px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Salvar Modo {nivelAcesso === 'mestre' ? 'Mestre' : 'Correção'}</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '14px', color: '#94a3b8' }}>Jogo {p.id.split('_')[1]} {p.status !== 'finalizado' && `(${p.status})`}</span>
+                        <span className={styles.boldText}>{p.timeA.nome} {p.pontosA} x {p.pontosB} {p.timeB.nome}</span>
+                        <button onClick={() => abrirEdicao(p)} style={{ padding: '4px 10px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✏️ Editar</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
             <div className={styles.card} style={{ marginTop: '20px', textAlign: 'center' }}>
               <h3 style={{ marginBottom: '15px' }}>📲 Compartilhar Torneio</h3>
