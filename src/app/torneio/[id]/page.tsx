@@ -443,7 +443,6 @@ export default function HubTorneio() {
   const jogoAtual = partidas.find(p => p.status === 'em_andamento'); 
   const proximoJogo = partidas.find(p => p.status === 'pendente');
 
-  // LÓGICA DE INVERSÃO DE LADOS (FIVB)
   const verificarInversaoFIVB = (jogo: Partida | undefined): boolean => {
     if (!jogo) return false;
     const formatoPartida = jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
@@ -609,11 +608,15 @@ export default function HubTorneio() {
           <form onSubmit={handleLogin} className={styles.loginBox}><h2 className={styles.adminWarningTitle}>🔒 Acesso Restrito</h2><input type="password" placeholder="Senha da Mesa ou Mestre" className={styles.input} value={senha} onChange={(e) => setSenha(e.target.value)} /><button type="submit" className={styles.btnPrimary}>Acessar</button></form>
         ) : (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', backgroundColor: '#1e293b', padding: '10px 20px', borderRadius: '12px', border: '1px solid #334155' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '18px', color: nivelAcesso === 'mestre' ? '#ef4444' : '#38bdf8' }}>Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}</h2>
-              </div>
-              <button onClick={fazerLogout} style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>Sair</button>
+            
+            {/* CABEÇALHO CORRIGIDO E CENTRALIZADO */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
+              <h2 style={{ margin: 0, fontSize: '22px', color: nivelAcesso === 'mestre' ? '#ef4444' : '#38bdf8' }}>
+                Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}
+              </h2>
+              <button onClick={fazerLogout} style={{ padding: '6px 16px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                Sair
+              </button>
             </div>
 
             {/* EDITOR GLOBAL DE EQUIPES (EXCLUSIVO MESTRE) */}
@@ -683,7 +686,6 @@ export default function HubTorneio() {
                     {partidaEditando === p.id ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         
-                        {/* CONTROLES MESTRE (TEMPO E STATUS) */}
                         {nivelAcesso === 'mestre' && (
                             <div style={{display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '10px'}}>
                                 <input type="time" value={editHorario} onChange={e => setEditHorario(e.target.value)} style={{padding: '5px', borderRadius: '4px', backgroundColor: '#334155', color: '#38bdf8', border: '1px solid #38bdf8', outline: 'none', fontWeight: 'bold'}} />
