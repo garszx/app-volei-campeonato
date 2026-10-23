@@ -622,9 +622,13 @@ export default function HubTorneio() {
             {/* EDITOR GLOBAL DE EQUIPES (EXCLUSIVO MESTRE) */}
             {nivelAcesso === 'mestre' && statusTorneio !== 'aguardando_sorteio' && (
               <div style={{ marginBottom: '20px' }}>
-                <button onClick={() => setMostrarEditorEquipes(!mostrarEditorEquipes)} style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>
-                  {mostrarEditorEquipes ? '❌ Fechar Editor Global de Equipes' : '🛠️ Abrir Editor Global de Equipes (Nomes, Logos e Chaves)'}
-                </button>
+                
+                {/* BOTÃO CORRIGIDO: Agora envolto num contentor flexível com maxWidth */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <button onClick={() => setMostrarEditorEquipes(!mostrarEditorEquipes)} style={{ width: '100%', maxWidth: '500px', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>
+                    {mostrarEditorEquipes ? '❌ Fechar Editor Global de Equipes' : '🛠️ Abrir Editor Global de Equipes (Nomes, Logos e Chaves)'}
+                  </button>
+                </div>
                 
                 {mostrarEditorEquipes && (
                   <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '12px', marginTop: '10px' }}>
