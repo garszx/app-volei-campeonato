@@ -36,6 +36,11 @@ export async function POST(request: Request) {
     let novosPontosB = jogo.pontos_b;
     let novoStatus = jogo.status;
 
+    // NOVIDADE: Guarda a parcial (ex: "25-22") antes de processar as regras
+    let novasParciais = jogo.parciais || '';
+    const setAtual = `${novosPontosA}-${novosPontosB}`;
+    novasParciais = novasParciais ? `${novasParciais},${setAtual}` : setAtual;
+
     if (isMelhorDe3) {
       if (vencedorA) novosSetsA += 1;
       if (vencedorB) novosSetsB += 1;
@@ -59,7 +64,8 @@ export async function POST(request: Request) {
       pontos_a: novosPontosA,
       pontos_b: novosPontosB,
       sets_vencidos_a: novosSetsA,
-      sets_vencidos_b: novosSetsB
+      sets_vencidos_b: novosSetsB,
+      parciais: novasParciais
     }).eq('id', partidaId);
 
     if (matchFinalizada && jogo.fase === 'grupos') {

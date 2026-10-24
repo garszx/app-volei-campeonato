@@ -11,7 +11,6 @@ interface TabelaJogosProps {
 export default function TabelaJogos({ abaAtiva, partidas, regras }: TabelaJogosProps) {
   if (abaAtiva !== 'jogos') return null;
 
-  // Lógica local para inverter visualmente APENAS jogos em andamento que cumpram a regra FIVB
   const verificarInversao = (jogo: Partida): boolean => {
     if (jogo.status !== 'em_andamento') return false; 
     const formato = jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
@@ -22,6 +21,27 @@ export default function TabelaJogos({ abaAtiva, partidas, regras }: TabelaJogosP
     return false;
   };
 
+  const renderParciais = (parciaisStr: string, isInv: boolean) => (
+    <div className={styles.parciaisContainer}>
+      {parciaisStr.split(',').map((parcial, i) => {
+        const partes = parcial.split('-');
+        if (partes.length !== 2) return null;
+        const ptsA = Number(partes[0]);
+        const ptsB = Number(partes[1]);
+        const visualA = isInv ? ptsB : ptsA;
+        const visualB = isInv ? ptsA : ptsB;
+
+        return (
+          <div key={i} className={styles.parcialTag}>
+            <span className={visualA > visualB ? styles.parcialVencedor : styles.parcialPerdedor}>{visualA}</span>
+            <span className={styles.parcialDivisor}>-</span>
+            <span className={visualB > visualA ? styles.parcialVencedor : styles.parcialPerdedor}>{visualB}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className={`${styles.showOnPrint}`}>
       <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
@@ -30,7 +50,6 @@ export default function TabelaJogos({ abaAtiva, partidas, regras }: TabelaJogosP
         {partidas.map((p, idx) => {
           const isInv = verificarInversao(p);
           
-          // Mapeamento Otimista: se estiver invertido, cruzamos os dados no ecrã
           const tA = isInv ? p.timeB : p.timeA;
           const tB = isInv ? p.timeA : p.timeB;
           const ptsA = isInv ? p.pontosB : p.pontosA;
@@ -66,8 +85,15 @@ export default function TabelaJogos({ abaAtiva, partidas, regras }: TabelaJogosP
                   
                   {p.status === 'pendente' ? (
                     <span className={styles.placarNumeros}>X</span>
+                  ) : p.status === 'finalizado' ? (
+                    <>
+                      {p.parciais ? renderParciais(p.parciais, isInv) : <span className={styles.placarNumeros}>{ptsA} - {ptsB}</span>}
+                    </>
                   ) : (
-                    <span className={styles.placarNumeros}>{ptsA} - {ptsB}</span>
+                    <>
+                      <span className={styles.placarNumeros}>{ptsA} - {ptsB}</span>
+                      {p.parciais && renderParciais(p.parciais, isInv)}
+                    </>
                   )}
 
                   <span className={`${styles.statusTag} ${

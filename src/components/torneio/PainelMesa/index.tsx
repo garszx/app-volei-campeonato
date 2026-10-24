@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 import { Partida, Regras, TimeDb, Time } from '../../../types/torneio';
 import styles from './PainelMesa.module.css';
 
@@ -32,9 +32,12 @@ interface PainelMesaProps {
   editMestreTimeB: string; setEditMestreTimeB: (v: string) => void;
   editMestreStatus: string; setEditMestreStatus: (v: string) => void;
   editHorario: string; setEditHorario: (v: string) => void;
+  editParciais: string; setEditParciais: (v: string) => void;
 }
 
 export default function PainelMesa(props: PainelMesaProps) {
+  const [cooldownBotao, setCooldownBotao] = useState(false);
+
   if (props.abaAtiva !== 'admin') return null;
   const { nivelAcesso, regras, statusTorneio, timesMap, partidas, jogoAtual, proximoJogo, isInvertido } = props;
   const isMd3Geral = regras?.formatoGrupos?.includes('melhor_de_3') || regras?.formatoFinais?.includes('melhor_de_3');
@@ -48,6 +51,15 @@ export default function PainelMesa(props: PainelMesaProps) {
   
   const logicalLeftTeam = isInvertido ? 'B' : 'A';
   const logicalRightTeam = isInvertido ? 'A' : 'B';
+
+  const handleCliquePonto = (partidaId: string, time: 'A' | 'B', valor: number) => {
+    if (cooldownBotao) return;
+    setCooldownBotao(true);
+    props.atualizarPlacar(partidaId, time, valor);
+    setTimeout(() => {
+      setCooldownBotao(false);
+    }, 400);
+  };
 
   if (nivelAcesso === 'visitante') {
     return (
@@ -112,8 +124,22 @@ export default function PainelMesa(props: PainelMesaProps) {
               <div className={styles.nomeTime}>{tA_UI.nome}</div>
               <div className={styles.pontos}>{ptsA_UI}</div>
               <div className={styles.controles}>
-                <button className={styles.btnMenos} onClick={() => props.atualizarPlacar(jogoAtual.id, logicalLeftTeam, -1)}>-</button>
-                <button className={styles.btnMais} onClick={() => props.atualizarPlacar(jogoAtual.id, logicalLeftTeam, 1)}>+</button>
+                <button
+                  className={styles.btnMenos}
+                  disabled={cooldownBotao}
+                  style={{ opacity: cooldownBotao ? 0.5 : 1, cursor: cooldownBotao ? 'not-allowed' : 'pointer' }}
+                  onClick={() => handleCliquePonto(jogoAtual.id, logicalLeftTeam, -1)}
+                >
+                  -
+                </button>
+                <button
+                  className={styles.btnMais}
+                  disabled={cooldownBotao}
+                  style={{ opacity: cooldownBotao ? 0.5 : 1, cursor: cooldownBotao ? 'not-allowed' : 'pointer' }}
+                  onClick={() => handleCliquePonto(jogoAtual.id, logicalLeftTeam, 1)}
+                >
+                  +
+                </button>
               </div>
             </div>
             
@@ -123,8 +149,22 @@ export default function PainelMesa(props: PainelMesaProps) {
               <div className={styles.nomeTime}>{tB_UI.nome}</div>
               <div className={styles.pontos}>{ptsB_UI}</div>
               <div className={styles.controles}>
-                <button className={styles.btnMenos} onClick={() => props.atualizarPlacar(jogoAtual.id, logicalRightTeam, -1)}>-</button>
-                <button className={styles.btnMais} onClick={() => props.atualizarPlacar(jogoAtual.id, logicalRightTeam, 1)}>+</button>
+                <button
+                  className={styles.btnMenos}
+                  disabled={cooldownBotao}
+                  style={{ opacity: cooldownBotao ? 0.5 : 1, cursor: cooldownBotao ? 'not-allowed' : 'pointer' }}
+                  onClick={() => handleCliquePonto(jogoAtual.id, logicalRightTeam, -1)}
+                >
+                  -
+                </button>
+                <button
+                  className={styles.btnMais}
+                  disabled={cooldownBotao}
+                  style={{ opacity: cooldownBotao ? 0.5 : 1, cursor: cooldownBotao ? 'not-allowed' : 'pointer' }}
+                  onClick={() => handleCliquePonto(jogoAtual.id, logicalRightTeam, 1)}
+                >
+                  +
+                </button>
               </div>
             </div>
           </div>
@@ -193,6 +233,12 @@ export default function PainelMesa(props: PainelMesaProps) {
                       {isMd3Geral && <><label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginTop: '10px', marginBottom: '4px' }}>Sets</label><input type="number" value={props.editSetsB} onChange={e => props.setEditSetsB(Number(e.target.value))} style={{ width: '100%', maxWidth: '80px', textAlign: 'center', padding: '8px', borderRadius: '8px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} /></>}
                     </div>
                   </div>
+                  {nivelAcesso === 'mestre' && (
+                    <div style={{ marginTop: '10px', width: '100%' }}>
+                      <label style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '4px', textAlign: 'center' }}>Histórico de Parciais (ex: 25-22,18-25)</label>
+                      <input type="text" value={props.editParciais} onChange={e => props.setEditParciais(e.target.value)} placeholder="Vazio" style={{ width: '100%', textAlign: 'center', padding: '8px', borderRadius: '8px', border: '1px solid #475569', background: '#1e293b', color: 'white' }} />
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
                     <button onClick={() => props.setPartidaEditando(null)} style={{ padding: '10px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', flex: 1, fontWeight: 'bold' }}>Cancelar</button>
                     <button onClick={() => props.salvarEdicao(p.id)} style={{ padding: '10px 16px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 2 }}>Salvar {nivelAcesso === 'mestre' ? 'Mestre' : 'Correção'}</button>

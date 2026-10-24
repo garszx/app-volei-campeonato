@@ -5,9 +5,9 @@ import { Time, TimeDb, Partida, Regras } from '../types/torneio';
 
 export function useTorneio(torneioId: string) {
   const router = useRouter();
-  const timerPlacarRef = useRef<NodeJS.Timeout | null>(null);
   const timesMapRef = useRef<Record<string, TimeDb>>({});
   const ultimoCliqueRef = useRef<number>(0);
+  const bloqueioCliqueRef = useRef<boolean>(false);
   const placarOtimistaRef = useRef<Record<string, { pontosA: number; pontosB: number }>>({});
 
   const [timesClassificacao, setTimesClassificacao] = useState<TimeDb[]>([]);
@@ -30,6 +30,7 @@ export function useTorneio(torneioId: string) {
   const [editMestreTimeB, setEditMestreTimeB] = useState<string>('');
   const [editMestreStatus, setEditMestreStatus] = useState<string>('');
   const [editHorario, setEditHorario] = useState<string>('');
+  const [editParciais, setEditParciais] = useState<string>('');
 
   const urlAtual = typeof window !== 'undefined' ? window.location.href : '';
 
@@ -85,7 +86,7 @@ export function useTorneio(torneioId: string) {
       setTimesClassificacao(classifArray);
 
       if (partidasDB) {
-        const isClicandoAgora = Date.now() - ultimoCliqueRef.current < 2000;
+        const isClicandoAgora = Date.now() - ultimoCliqueRef.current < 800;
         const partidasFormatadas: Partida[] = partidasDB.map((p, index) => {
           const otimista = placarOtimistaRef.current[p.id];
           const pA = isClicandoAgora && otimista ? otimista.pontosA : p.pontos_a;
@@ -106,6 +107,7 @@ export function useTorneio(torneioId: string) {
             pontosB: pB,
             setsVencidosA: p.sets_vencidos_a,
             setsVencidosB: p.sets_vencidos_b,
+            parciais: p.parciais,
             timeA: mapaTimes[p.time_a_id] || { id: p.time_a_id, nome: '?', escudoUrl: '' },
             timeB: mapaTimes[p.time_b_id] || { id: p.time_b_id, nome: '?', escudoUrl: '' }
           };
@@ -121,7 +123,7 @@ export function useTorneio(torneioId: string) {
     };
     carregarInicialmente();
 
-    const channel = supabase.channel('mudancas-torneio')
+    const channel = supabase.channel('mudancas-torneio-' + torneioId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'torneios', filter: 'id=eq.' + torneioId }, carregarDados)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'times', filter: 'torneio_id=eq.' + torneioId }, carregarDados)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'partidas', filter: 'torneio_id=eq.' + torneioId }, carregarDados)
@@ -129,7 +131,7 @@ export function useTorneio(torneioId: string) {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'partidas', filter: 'torneio_id=eq.' + torneioId }, (payload) => {
         const dados = payload.new;
         const mapaAtual = timesMapRef.current;
-        const isClicandoAgora = Date.now() - ultimoCliqueRef.current < 2000;
+        const isClicandoAgora = Date.now() - ultimoCliqueRef.current < 800;
 
         if (!isClicandoAgora) {
           placarOtimistaRef.current[dados.id] = { pontosA: dados.pontos_a, pontosB: dados.pontos_b };
@@ -146,6 +148,7 @@ export function useTorneio(torneioId: string) {
                 setsVencidosA: dados.sets_vencidos_a, 
                 setsVencidosB: dados.sets_vencidos_b, 
                 status: dados.status,
+                parciais: dados.parciais,
                 timeA: dados.time_a_id && mapaAtual[dados.time_a_id] ? mapaAtual[dados.time_a_id] : p.timeA,
                 timeB: dados.time_b_id && mapaAtual[dados.time_b_id] ? mapaAtual[dados.time_b_id] : p.timeB
               } 
@@ -200,6 +203,9 @@ export function useTorneio(torneioId: string) {
   };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
+    if (bloqueioCliqueRef.current) return;
+
+    bloqueioCliqueRef.current = true;
     ultimoCliqueRef.current = Date.now();
 
     const jogoEstado = partidas.find(p => p.id === id);
@@ -217,26 +223,17 @@ export function useTorneio(torneioId: string) {
       prevPartidas.map(p => (p.id === id ? { ...p, pontosA: novoA, pontosB: novoB } : p))
     );
 
-    if (timerPlacarRef.current) {
-      clearTimeout(timerPlacarRef.current);
-    }
+    setTimeout(() => {
+      bloqueioCliqueRef.current = false;
+    }, 400);
 
-    timerPlacarRef.current = setTimeout(async () => {
-      const placarFinal = placarOtimistaRef.current[id];
-      if (!placarFinal) return;
-      await supabase
-        .from('partidas')
-        .update({ pontos_a: placarFinal.pontosA, pontos_b: placarFinal.pontosB })
-        .eq('id', id);
-    }, 150);
+    await supabase
+      .from('partidas')
+      .update({ pontos_a: novoA, pontos_b: novoB })
+      .eq('id', id);
   };
 
   const encerrarAcao = async (jogo: Partida) => {
-    if (timerPlacarRef.current) {
-      clearTimeout(timerPlacarRef.current);
-      timerPlacarRef.current = null;
-    }
-
     const placarFinal = placarOtimistaRef.current[jogo.id];
     if (placarFinal) {
       await supabase
@@ -246,6 +243,7 @@ export function useTorneio(torneioId: string) {
     }
 
     ultimoCliqueRef.current = 0;
+    bloqueioCliqueRef.current = false;
     delete placarOtimistaRef.current[jogo.id];
 
     try {
@@ -299,6 +297,7 @@ export function useTorneio(torneioId: string) {
     setEditSetsA(p.setsVencidosA || 0); setEditSetsB(p.setsVencidosB || 0);
     setEditMestreTimeA(p.timeA.id); setEditMestreTimeB(p.timeB.id); 
     setEditMestreStatus(p.status); setEditHorario(p.horario);
+    setEditParciais(p.parciais || '');
   };
 
   const salvarEdicao = async (jogoId: string) => {
@@ -318,6 +317,7 @@ export function useTorneio(torneioId: string) {
             setsVencidosB: editSetsB,
             status: editMestreStatus,
             horario: editHorario,
+            parciais: editParciais,
             timeA: novoTimeA ? novoTimeA : p.timeA,
             timeB: novoTimeB ? novoTimeB : p.timeB
           }
@@ -330,7 +330,8 @@ export function useTorneio(torneioId: string) {
         pontos_a: editPontosA, pontos_b: editPontosB, 
         sets_vencidos_a: editSetsA, sets_vencidos_b: editSetsB,
         time_a_id: editMestreTimeA, time_b_id: editMestreTimeB, 
-        status: editMestreStatus, horario: editHorario
+        status: editMestreStatus, horario: editHorario,
+        parciais: editParciais
     }).eq('id', jogoId);
 
     await carregarDados();
@@ -382,6 +383,7 @@ export function useTorneio(torneioId: string) {
     partidaEditando, setPartidaEditando, editPontosA, setEditPontosA, editPontosB, setEditPontosB,
     editSetsA, setEditSetsA, editSetsB, setEditSetsB, editMestreTimeA, setEditMestreTimeA,
     editMestreTimeB, setEditMestreTimeB, editMestreStatus, setEditMestreStatus, editHorario, setEditHorario,
+    editParciais, setEditParciais,
     urlAtual, jogoAtual, proximoJogo, isInvertido,
     handleLogin, fazerLogout, atualizarNomeEquipe, handleUploadLogoGlobal, atualizarChaveEquipe,
     iniciarPartida, atualizarPlacar, recalcularTabela: () => {}, abrirEdicao, salvarEdicao, encerrarAcao,
