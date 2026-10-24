@@ -7,6 +7,8 @@ export function useTorneio(torneioId: string) {
   const router = useRouter();
   const timerPlacarRef = useRef<NodeJS.Timeout | null>(null);
   const timesMapRef = useRef<Record<string, TimeDb>>({});
+  const ultimoCliqueRef = useRef<number>(0);
+  const placarOtimistaRef = useRef<Record<string, { pontosA: number; pontosB: number }>>({});
 
   const [timesClassificacao, setTimesClassificacao] = useState<TimeDb[]>([]);
   const [timesBase, setTimesBase] = useState<Time[]>([]);
@@ -83,20 +85,31 @@ export function useTorneio(torneioId: string) {
       setTimesClassificacao(classifArray);
 
       if (partidasDB) {
-        const partidasFormatadas: Partida[] = partidasDB.map((p, index) => ({
-          id: p.id,
-          ordem: p.ordem || (index + 1),
-          numero: p.ordem || (index + 1),
-          fase: p.fase,
-          status: p.status,
-          horario: p.horario,
-          pontosA: p.pontos_a,
-          pontosB: p.pontos_b,
-          setsVencidosA: p.sets_vencidos_a,
-          setsVencidosB: p.sets_vencidos_b,
-          timeA: mapaTimes[p.time_a_id] || { id: p.time_a_id, nome: '?', escudoUrl: '' },
-          timeB: mapaTimes[p.time_b_id] || { id: p.time_b_id, nome: '?', escudoUrl: '' }
-        }));
+        const isClicandoAgora = Date.now() - ultimoCliqueRef.current < 2000;
+        const partidasFormatadas: Partida[] = partidasDB.map((p, index) => {
+          const otimista = placarOtimistaRef.current[p.id];
+          const pA = isClicandoAgora && otimista ? otimista.pontosA : p.pontos_a;
+          const pB = isClicandoAgora && otimista ? otimista.pontosB : p.pontos_b;
+
+          if (!isClicandoAgora) {
+            placarOtimistaRef.current[p.id] = { pontosA: p.pontos_a, pontosB: p.pontos_b };
+          }
+
+          return {
+            id: p.id,
+            ordem: p.ordem || (index + 1),
+            numero: p.ordem || (index + 1),
+            fase: p.fase,
+            status: p.status,
+            horario: p.horario,
+            pontosA: pA,
+            pontosB: pB,
+            setsVencidosA: p.sets_vencidos_a,
+            setsVencidosB: p.sets_vencidos_b,
+            timeA: mapaTimes[p.time_a_id] || { id: p.time_a_id, nome: '?', escudoUrl: '' },
+            timeB: mapaTimes[p.time_b_id] || { id: p.time_b_id, nome: '?', escudoUrl: '' }
+          };
+        });
         setPartidas(partidasFormatadas);
       }
     }
@@ -116,14 +129,20 @@ export function useTorneio(torneioId: string) {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'partidas', filter: 'torneio_id=eq.' + torneioId }, (payload) => {
         const dados = payload.new;
         const mapaAtual = timesMapRef.current;
+        const isClicandoAgora = Date.now() - ultimoCliqueRef.current < 2000;
+
+        if (!isClicandoAgora) {
+          placarOtimistaRef.current[dados.id] = { pontosA: dados.pontos_a, pontosB: dados.pontos_b };
+        }
+
         setPartidas(prev => prev.map(p => 
           p.id === dados.id 
             ? { 
                 ...p, 
                 horario: dados.horario ?? p.horario,
                 fase: dados.fase ?? p.fase,
-                pontosA: dados.pontos_a, 
-                pontosB: dados.pontos_b, 
+                pontosA: isClicandoAgora ? p.pontosA : dados.pontos_a, 
+                pontosB: isClicandoAgora ? p.pontosB : dados.pontos_b, 
                 setsVencidosA: dados.sets_vencidos_a, 
                 setsVencidosB: dados.sets_vencidos_b, 
                 status: dados.status,
@@ -181,42 +200,54 @@ export function useTorneio(torneioId: string) {
   };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
-    const jogo = partidas.find(p => p.id === id);
-    if (!jogo) return;
+    ultimoCliqueRef.current = Date.now();
 
-    const novoValor = time === 'A' ? Math.max(0, jogo.pontosA + valor) : Math.max(0, jogo.pontosB + valor);
+    const jogoEstado = partidas.find(p => p.id === id);
+    const base = placarOtimistaRef.current[id] || {
+      pontosA: jogoEstado?.pontosA || 0,
+      pontosB: jogoEstado?.pontosB || 0
+    };
+
+    const novoA = time === 'A' ? Math.max(0, base.pontosA + valor) : base.pontosA;
+    const novoB = time === 'B' ? Math.max(0, base.pontosB + valor) : base.pontosB;
+
+    placarOtimistaRef.current[id] = { pontosA: novoA, pontosB: novoB };
 
     setPartidas(prevPartidas => 
-      prevPartidas.map(p => {
-        if (p.id === id) {
-          return {
-            ...p,
-            pontosA: time === 'A' ? novoValor : p.pontosA,
-            pontosB: time === 'B' ? novoValor : p.pontosB
-          };
-        }
-        return p;
-      })
+      prevPartidas.map(p => (p.id === id ? { ...p, pontosA: novoA, pontosB: novoB } : p))
     );
 
     if (timerPlacarRef.current) {
       clearTimeout(timerPlacarRef.current);
     }
 
-    timerPlacarRef.current = setTimeout(() => {
-      try {
-        fetch('/api/partidas/placar', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ partidaId: id, time, valorAbsoluto: novoValor }) 
-        }).catch(() => console.error("Falha ao sincronizar"));
-      } catch {
-        console.error("Falha ao executar fetch");
-      }
-    }, 500);
+    timerPlacarRef.current = setTimeout(async () => {
+      const placarFinal = placarOtimistaRef.current[id];
+      if (!placarFinal) return;
+      await supabase
+        .from('partidas')
+        .update({ pontos_a: placarFinal.pontosA, pontos_b: placarFinal.pontosB })
+        .eq('id', id);
+    }, 150);
   };
 
   const encerrarAcao = async (jogo: Partida) => {
+    if (timerPlacarRef.current) {
+      clearTimeout(timerPlacarRef.current);
+      timerPlacarRef.current = null;
+    }
+
+    const placarFinal = placarOtimistaRef.current[jogo.id];
+    if (placarFinal) {
+      await supabase
+        .from('partidas')
+        .update({ pontos_a: placarFinal.pontosA, pontos_b: placarFinal.pontosB })
+        .eq('id', jogo.id);
+    }
+
+    ultimoCliqueRef.current = 0;
+    delete placarOtimistaRef.current[jogo.id];
+
     try {
       await fetch('/api/partidas/encerrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ torneioId, partidaId: jogo.id }) });
       await carregarDados();
@@ -273,6 +304,9 @@ export function useTorneio(torneioId: string) {
   const salvarEdicao = async (jogoId: string) => {
     const novoTimeA = timesMap[editMestreTimeA];
     const novoTimeB = timesMap[editMestreTimeB];
+
+    ultimoCliqueRef.current = 0;
+    placarOtimistaRef.current[jogoId] = { pontosA: editPontosA, pontosB: editPontosB };
 
     setPartidas(prev => prev.map(p => 
       p.id === jogoId 
