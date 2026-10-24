@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '../../firebase';
-import { ref, set } from 'firebase/database';
+import { supabase } from '../../supabase';
 import styles from './setup.module.css';
 
 interface TimeConfig { id: string; nome: string; escudoUrl: string; }
-interface TimeDbSave extends TimeConfig { sets_vencidos: number; total_pontos: number; pontos_classificacao: number; }
 
 export default function Setup() {
   const router = useRouter();
@@ -73,27 +71,48 @@ export default function Setup() {
     if (times.some(t => t.nome.trim() === '')) { setErroMsg('Todos os times precisam ter um NOME preenchido.'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (regras.mostrarLogos && times.some(t => t.escudoUrl === '')) { setErroMsg('Você escolheu "Mostrar Logos", portanto TODOS os times precisam de uma imagem/brasão.'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
 
-    const timesObj: Record<string, TimeDbSave> = {};
-    times.forEach((t, i) => { 
-      const idLimpo = `time_${i + 1}`; 
-      timesObj[idLimpo] = { id: idLimpo, nome: t.nome, escudoUrl: t.escudoUrl, sets_vencidos: 0, total_pontos: 0, pontos_classificacao: 0 }; 
-    });
-
-    const slug = regras.nomeCampeonato.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const codigoAleatorio = Math.random().toString(36).substring(2, 7);
-    const torneioId = `${slug}-${codigoAleatorio}`;
-
     const primeiraPalavra = regras.nomeCampeonato.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
     const senhaGerada = `${primeiraPalavra}${new Date().getFullYear()}`; 
-
     const regrasComSenha = { ...regras, senhaAdmin: senhaGerada };
 
     try {
-      await set(ref(db, `torneios/${torneioId}`), { config: { status: 'aguardando_sorteio', regras: regrasComSenha }, times: timesObj });
+      // 1. Cria o torneio na base de dados e devolve o ID gerado
+      const { data: novoTorneio, error: erroTorneio } = await supabase
+        .from('torneios')
+        .insert({
+          nome: regras.nomeCampeonato,
+          status: 'aguardando_sorteio',
+          regras: regrasComSenha
+        })
+        .select('id')
+        .single();
+
+      if (erroTorneio || !novoTorneio) {
+        throw new Error('Falha ao criar o torneio.');
+      }
+
+      const torneioId = novoTorneio.id;
+
+      // 2. Prepara e insere as equipas ligadas a este torneio
+      const timesParaInserir = times.map(t => ({
+        torneio_id: torneioId,
+        nome: t.nome,
+        escudo_url: t.escudoUrl
+      }));
+
+      const { error: erroTimes } = await supabase.from('times').insert(timesParaInserir);
+      
+      if (erroTimes) {
+        throw new Error('Falha ao cadastrar os times.');
+      }
+
+      // 3. Sucesso! Mostra o ecrã final com o link.
       const urlCompleta = `${window.location.origin}/torneio/${torneioId}`;
       setLinkGerado(urlCompleta);
       setRegras(regrasComSenha);
-    } catch { 
+
+    } catch (err) { 
+      console.error(err);
       setErroMsg('Ocorreu um erro ao conectar com o banco de dados. Tente novamente.'); 
     }
   };

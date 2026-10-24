@@ -11,38 +11,83 @@ interface TabelaJogosProps {
 export default function TabelaJogos({ abaAtiva, partidas, regras }: TabelaJogosProps) {
   if (abaAtiva !== 'jogos') return null;
 
+  // Lógica local para inverter visualmente APENAS jogos em andamento que cumpram a regra FIVB
+  const verificarInversao = (jogo: Partida): boolean => {
+    if (jogo.status !== 'em_andamento') return false; 
+    const formato = jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais;
+    if (!formato?.includes('melhor_de_3')) return false;
+    const setsJogados = (jogo.setsVencidosA || 0) + (jogo.setsVencidosB || 0);
+    if (setsJogados === 1) return true;
+    if (setsJogados === 2 && Math.max(jogo.pontosA, jogo.pontosB) >= 8) return true;
+    return false;
+  };
+
   return (
-    <div className={styles.showOnPrint}>
+    <div className={`${styles.showOnPrint}`}>
       <h2 className={`${styles.hideOnScreen} ${styles.printTitle}`}>Tabela de Jogos</h2>
+      
       <div className={styles.listaJogos}>
-        {partidas.map((jogo) => {
-          const num = jogo.id.split('_')[1];
-          let classeStatus = styles.statusPendente; let textoStatus = 'Aguardando';
+        {partidas.map((p, idx) => {
+          const isInv = verificarInversao(p);
           
-          if (jogo.status === 'em_andamento') { classeStatus = styles.statusAndamento; textoStatus = 'Ao Vivo'; }
-          if (jogo.status === 'finalizado') { classeStatus = styles.statusFinalizado; textoStatus = 'Finalizado'; }
+          // Mapeamento Otimista: se estiver invertido, cruzamos os dados no ecrã
+          const tA = isInv ? p.timeB : p.timeA;
+          const tB = isInv ? p.timeA : p.timeB;
+          const ptsA = isInv ? p.pontosB : p.pontosA;
+          const ptsB = isInv ? p.pontosA : p.pontosB;
+          const setsA = isInv ? p.setsVencidosB : p.setsVencidosA;
+          const setsB = isInv ? p.setsVencidosA : p.setsVencidosB;
           
-          const isMd3 = (jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
+          const isMd3 = (p.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
 
           return (
-            <div key={jogo.id} className={styles.cardJogo}>
+            <div key={p.id} className={styles.cardJogo}>
               <div className={styles.cardTop}>
-                <span className={styles.jogoNumero}>{jogo.fase === 'final' ? '🏆 GRANDE FINAL' : jogo.fase === 'terceiro_lugar' ? '🥉 Disputa 3º' : jogo.fase === 'semifinal' ? `Semifinal` : `Jogo ${num}`}</span>
-                <span className={styles.horario}>{jogo.horario}</span>
+                <span className={styles.jogoNumero}>
+                  {p.fase === 'final' ? 'GRANDE FINAL' : p.fase === 'semifinal' ? `SEMIFINAL` : `JOGO ${idx + 1}`}
+                </span>
+                <span className={styles.horario}>{p.horario}</span>
               </div>
+              
               <div className={styles.confronto}>
                 <div className={styles.time}>
-                  {regras?.mostrarLogos && <Image src={jogo.timeA.escudoUrl} alt="A" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} 
-                  <span>{jogo.timeA.nome}</span>
+                  {regras?.mostrarLogos && (
+                    <div className={styles.escudo}>
+                      <Image src={tA.escudoUrl} alt="A" width={45} height={45} className={styles.imageContain} />
+                    </div>
+                  )}
+                  <span>{tA.nome}</span>
                 </div>
+
                 <div className={styles.placarCentral}>
-                  {isMd3 && jogo.status !== 'pendente' && <span className={styles.setsLabel}>Sets: {jogo.setsVencidosA || 0} - {jogo.setsVencidosB || 0}</span>}
-                  <span className={styles.placarNumeros}>{jogo.status === 'pendente' ? 'X' : `${jogo.pontosA} - ${jogo.pontosB}`}</span>
-                  <span className={`${styles.statusTag} ${classeStatus}`}>{textoStatus}</span>
+                  {isMd3 && (
+                    <span className={styles.setsLabel}>SETS: {setsA || 0} - {setsB || 0}</span>
+                  )}
+                  
+                  {p.status === 'pendente' ? (
+                    <span className={styles.placarNumeros}>X</span>
+                  ) : (
+                    <span className={styles.placarNumeros}>{ptsA} - {ptsB}</span>
+                  )}
+
+                  <span className={`${styles.statusTag} ${
+                    p.status === 'finalizado' ? styles.statusFinalizado : 
+                    p.status === 'em_andamento' ? styles.statusAndamento : 
+                    styles.statusPendente
+                  }`}>
+                    {p.status === 'finalizado' ? 'FINALIZADO' : 
+                     p.status === 'em_andamento' ? 'AO VIVO' : 
+                     'AGUARDANDO'}
+                  </span>
                 </div>
+
                 <div className={styles.time}>
-                  {regras?.mostrarLogos && <Image src={jogo.timeB.escudoUrl} alt="B" className={`${styles.escudo} ${styles.imageContain}`} width={50} height={50} />} 
-                  <span>{jogo.timeB.nome}</span>
+                  {regras?.mostrarLogos && (
+                    <div className={styles.escudo}>
+                      <Image src={tB.escudoUrl} alt="B" width={45} height={45} className={styles.imageContain} />
+                    </div>
+                  )}
+                  <span>{tB.nome}</span>
                 </div>
               </div>
             </div>

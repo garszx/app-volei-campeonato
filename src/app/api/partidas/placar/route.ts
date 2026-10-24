@@ -1,33 +1,31 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../firebase'; 
-import { ref, get, update } from 'firebase/database';
+import { supabase } from '../../../../supabase'; 
 
 export async function POST(request: Request) {
   try {
-    // Lê o que o botão do front-end enviou
     const body = await request.json();
-    const { torneioId, partidaId, time, valor } = body;
+    const { partidaId, time, valor, valorAbsoluto } = body;
 
-    if (!torneioId || !partidaId || !time || valor === undefined) {
+    if (!partidaId || !time || (valor === undefined && valorAbsoluto === undefined)) {
       return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
     }
 
-    const partidaRef = ref(db, `torneios/${torneioId}/partidas/${partidaId}`);
-    const snapshot = await get(partidaRef);
-    
-    if (!snapshot.exists()) {
-      return NextResponse.json({ error: 'Partida não encontrada' }, { status: 404 });
+    const campo = time === 'A' ? 'pontos_a' : 'pontos_b';
+    let novoValor = 0;
+
+    // Se o cliente enviar o valor exato já calculado pela interface otimista
+    if (valorAbsoluto !== undefined) {
+      novoValor = valorAbsoluto;
+    } else {
+      // Método de fallback (legado)
+      const { data: jogo } = await supabase.from('partidas').select('pontos_a, pontos_b').eq('id', partidaId).single();
+      if (!jogo) return NextResponse.json({ error: 'Partida não encontrada' }, { status: 404 });
+      novoValor = Math.max(0, jogo[campo] + valor);
     }
 
-    // Matemática feita no servidor, não no celular do usuário
-    const jogo = snapshot.val();
-    const campo = time === 'A' ? 'pontosA' : 'pontosB';
-    let novoValor = jogo[campo] + valor;
-    if (novoValor < 0) novoValor = 0;
+    const { error: updateError } = await supabase.from('partidas').update({ [campo]: novoValor }).eq('id', partidaId);
 
-    // Salva no banco
-    await update(partidaRef, { [campo]: novoValor });
-
+    if (updateError) throw updateError;
     return NextResponse.json({ sucesso: true, novoPlacar: novoValor });
     
   } catch (error) {

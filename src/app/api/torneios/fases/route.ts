@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../firebase';
-import { ref, get, update } from 'firebase/database';
-import { TimeDb, Partida } from '../../../../types/torneio';
+import { supabase } from '../../../../supabase';
+import { TimeDb } from '../../../../types/torneio';
 
 export async function POST(request: Request) {
   try {
     const { torneioId, acao } = await request.json();
     if (!torneioId || !acao) return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
 
-    const torneioRef = ref(db, `torneios/${torneioId}`);
-    const snapshot = await get(torneioRef);
-    if (!snapshot.exists()) return NextResponse.json({ error: 'Torneio não encontrado' }, { status: 404 });
+    // 1. Busca todos os dados relacionais necessários
+    const { data: torneio } = await supabase.from('torneios').select('*').eq('id', torneioId).single();
+    const { data: times } = await supabase.from('times').select('*').eq('torneio_id', torneioId);
+    const { data: partidas } = await supabase.from('partidas').select('*').eq('torneio_id', torneioId);
 
-    const dados = snapshot.val();
-    const timesClassificacao = Object.values(dados.times || {}) as TimeDb[];
-    const partidas = Object.values(dados.partidas || {}) as Partida[];
+    if (!torneio || !times || !partidas) return NextResponse.json({ error: 'Dados não encontrados' }, { status: 404 });
+
+    const timesClassificacao = times as TimeDb[];
     const numMatches = partidas.length;
-    const updates: Record<string, string | Partida> = {};
 
+    // 2. Ordena a classificação oficial
     timesClassificacao.sort((a, b) => {
-      const isSimples = dados.config?.regras?.sistemaClassificacao !== 'sistema_pontos';
+      const isSimples = torneio.regras?.sistemaClassificacao !== 'sistema_pontos';
       if (isSimples) {
         if ((b.sets_vencidos || 0) !== (a.sets_vencidos || 0)) return (b.sets_vencidos || 0) - (a.sets_vencidos || 0);
       } else {
@@ -31,48 +31,55 @@ export async function POST(request: Request) {
     });
 
     const isDuasChaves = timesClassificacao.some(t => t.chave === 'A' || t.chave === 'B');
+    const novasPartidas = [];
+    let novoStatus = torneio.status;
 
+    // 3. Aplica a lógica dependendo da ação solicitada
     if (acao === 'gerarSemifinais') {
         if (isDuasChaves) {
             const timesA = timesClassificacao.filter(t => t.chave === 'A'); const timesB = timesClassificacao.filter(t => t.chave === 'B');
-            if (timesA.length < 2 || timesB.length < 2) return NextResponse.json({ error: 'Falta times' }, { status: 400 });
-            updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesA[0], timeB: timesB[1] };
-            updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: timesB[0], timeB: timesA[1] };
+            novasPartidas.push({ torneio_id: torneioId, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', time_a_id: timesA[0].id, time_b_id: timesB[1].id, ordem: numMatches + 1 });
+            novasPartidas.push({ torneio_id: torneioId, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', time_a_id: timesB[0].id, time_b_id: timesA[1].id, ordem: numMatches + 2 });
         } else {
-            if (timesClassificacao.length < 4) return NextResponse.json({ error: 'Falta times' }, { status: 400 });
             const classificados = timesClassificacao.slice(0, 4);
-            updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[3] };
-            updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[1], timeB: classificados[2] };
+            novasPartidas.push({ torneio_id: torneioId, fase: 'semifinal', horario: 'SEMI 1', status: 'pendente', time_a_id: classificados[0].id, time_b_id: classificados[3].id, ordem: numMatches + 1 });
+            novasPartidas.push({ torneio_id: torneioId, fase: 'semifinal', horario: 'SEMI 2', status: 'pendente', time_a_id: classificados[1].id, time_b_id: classificados[2].id, ordem: numMatches + 2 });
         }
-        updates[`torneios/${torneioId}/config/status`] = 'semifinais';
+        novoStatus = 'semifinais';
     } 
     else if (acao === 'gerarFinalDireta') {
         const classificados = isDuasChaves ? [timesClassificacao.filter(t => t.chave === 'A')[0], timesClassificacao.filter(t => t.chave === 'B')[0]] : timesClassificacao.slice(0, 2);
-        updates[`torneios/${torneioId}/config/status`] = 'finais';
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: classificados[0], timeB: classificados[1] };
+        novoStatus = 'finais';
+        novasPartidas.push({ torneio_id: torneioId, fase: 'final', horario: 'FINAL', status: 'pendente', time_a_id: classificados[0].id, time_b_id: classificados[1].id, ordem: numMatches + 1 });
     }
     else if (acao === 'gerarFinais') {
-        const semi1 = partidas.find(p => p.id === `jogo_${numMatches - 1}`); 
-        const semi2 = partidas.find(p => p.id === `jogo_${numMatches}`);
-        if (!semi1 || !semi2) return NextResponse.json({ error: 'Semis não encontradas' }, { status: 400 });
+        // Encontra as meias-finais e ordena-as para descobrir os cruzamentos
+        const semis = partidas.filter(p => p.fase === 'semifinal').sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+        const semi1 = semis[0]; const semi2 = semis[1];
         
-        const semi1VenceuA = ((semi1.setsVencidosA || 0) === 2 || (semi1.setsVencidosB || 0) === 2) ? (semi1.setsVencidosA === 2) : (semi1.pontosA > semi1.pontosB);
-        const semi2VenceuA = ((semi2.setsVencidosA || 0) === 2 || (semi2.setsVencidosB || 0) === 2) ? (semi2.setsVencidosA === 2) : (semi2.pontosA > semi2.pontosB);
-        const vencedor16 = semi1VenceuA ? semi1.timeA : semi1.timeB; const perdedor16 = semi1VenceuA ? semi1.timeB : semi1.timeA;
-        const vencedor17 = semi2VenceuA ? semi2.timeA : semi2.timeB; const perdedor17 = semi2VenceuA ? semi2.timeB : semi2.timeA;
+        const semi1VenceuA = ((semi1.sets_vencidos_a || 0) === 2 || (semi1.sets_vencidos_b || 0) === 2) ? (semi1.sets_vencidos_a === 2) : (semi1.pontos_a > semi1.pontos_b);
+        const semi2VenceuA = ((semi2.sets_vencidos_a || 0) === 2 || (semi2.sets_vencidos_b || 0) === 2) ? (semi2.sets_vencidos_a === 2) : (semi2.pontos_a > semi2.pontos_b);
         
-        updates[`torneios/${torneioId}/config/status`] = 'finais';
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 1}`] = { id: `jogo_${numMatches + 1}`, fase: 'terceiro_lugar', horario: 'DISPUTA 3º', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: perdedor16, timeB: perdedor17 };
-        updates[`torneios/${torneioId}/partidas/jogo_${numMatches + 2}`] = { id: `jogo_${numMatches + 2}`, fase: 'final', horario: 'FINAL', status: 'pendente', pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: vencedor16, timeB: vencedor17 };
+        const vencedor16 = semi1VenceuA ? semi1.time_a_id : semi1.time_b_id; const perdedor16 = semi1VenceuA ? semi1.time_b_id : semi1.time_a_id;
+        const vencedor17 = semi2VenceuA ? semi2.time_a_id : semi2.time_b_id; const perdedor17 = semi2VenceuA ? semi2.time_b_id : semi2.time_a_id;
+        
+        novoStatus = 'finais';
+        novasPartidas.push({ torneio_id: torneioId, fase: 'terceiro_lugar', horario: 'DISPUTA 3º', status: 'pendente', time_a_id: perdedor16, time_b_id: perdedor17, ordem: numMatches + 1 });
+        novasPartidas.push({ torneio_id: torneioId, fase: 'final', horario: 'FINAL', status: 'pendente', time_a_id: vencedor16, time_b_id: vencedor17, ordem: numMatches + 2 });
     }
     else if (acao === 'encerrarCampeonatoPontosCorridos') {
-        updates[`torneios/${torneioId}/config/status`] = 'finais';
+        novoStatus = 'finais';
     }
 
-    await update(ref(db), updates);
+    // 4. Guarda tudo no banco de dados de uma só vez
+    if (novasPartidas.length > 0) {
+        await supabase.from('partidas').insert(novasPartidas);
+    }
+    await supabase.from('torneios').update({ status: novoStatus }).eq('id', torneioId);
+
     return NextResponse.json({ sucesso: true });
   } catch (error) {
-    console.error("Erro na API de fases:", error);
+    console.error("Erro na API de fases (Supabase):", error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

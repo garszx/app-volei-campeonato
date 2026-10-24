@@ -9,9 +9,12 @@
 .setsInfo { font-size: 18px; color: #94a3b8; margin-bottom: 20px; }
 .placarLive { display: flex; justify-content: center; align-items: center; gap: 40px; width: 100%; }
 .timeCol { display: flex; flex-direction: column; align-items: center; flex: 1; }
-.escudoWrapper { background-color: white; border-radius: 50%; padding: 10px; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; width: 110px; height: 110px; }
-.escudoLive { object-fit: contain; }
+
+.escudoWrapper { background-color: #ffffff; border-radius: 50%; display: flex; justify-content: center; align-items: center; width: 110px; height: 110px; overflow: hidden; margin: 0 auto 15px auto; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+.nextGameContainer .escudoWrapper { width: 90px; height: 90px; }
+.escudoLive { border-radius: 50%; object-fit: contain; }
 .imageContain { object-fit: contain; }
+
 .timeNomeLive { font-size: 24px; color: white; margin-bottom: 15px; text-align: center; word-break: break-word; }
 .pontuacao { font-size: 80px; font-weight: bold; color: #38bdf8; line-height: 1; }
 .vsCard { display: flex; align-items: center; justify-content: center; }

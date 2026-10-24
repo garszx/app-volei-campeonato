@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../firebase';
-import { ref, get, update, set } from 'firebase/database';
-import { Time, Partida } from '../../../../types/torneio';
+import { supabase } from '../../../../supabase';
+import { TimeDb } from '../../../../types/torneio';
 
 export async function POST(request: Request) {
   try {
@@ -11,21 +10,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Falta a ID do torneio' }, { status: 400 });
     }
 
-    const torneioRef = ref(db, `torneios/${torneioId}`);
-    const snapshot = await get(torneioRef);
+    const { data: torneio } = await supabase.from('torneios').select('regras').eq('id', torneioId).single();
+    const { data: times } = await supabase.from('times').select('*').eq('torneio_id', torneioId);
 
-    if (!snapshot.exists()) {
-      return NextResponse.json({ error: 'Torneio não encontrado' }, { status: 404 });
-    }
-
-    const dados = snapshot.val();
-    const timesBase = Object.values(dados.times || {}) as Time[];
-    const regras = dados.config?.regras;
-
-    if (timesBase.length < 3) {
+    if (!torneio || !times || times.length < 3) {
       return NextResponse.json({ error: 'Mínimo de 3 times necessários' }, { status: 400 });
     }
 
+    const regras = torneio.regras || {};
+    const timesBase = times as TimeDb[];
+    
     const isDuasChaves = timesBase.length >= 6;
     const timesSorteados = [...timesBase];
     for (let i = timesSorteados.length - 1; i > 0; i--) { 
@@ -33,20 +27,22 @@ export async function POST(request: Request) {
         [timesSorteados[i], timesSorteados[j]] = [timesSorteados[j], timesSorteados[i]]; 
     }
 
-    const updates: Record<string, string> = {};
+    // Correção: Uso de PromiseLike para o array de promessas
+    const updatesTimes: PromiseLike<unknown>[] = [];
     
-    const gerarConfrontos = (grupoTimes: Time[]) => {
+    const gerarConfrontos = (grupoTimes: TimeDb[]) => {
         const lista = [...grupoTimes];
-        if (lista.length % 2 !== 0) lista.push({ id: 'folga_ficticia', nome: 'FOLGA', escudoUrl: '' });
+        // Correção: Substituição do 'any' por uma conversão segura
+        if (lista.length % 2 !== 0) lista.push({ id: 'folga', nome: 'FOLGA' } as unknown as TimeDb);
         const confrontos = [];
         for (let r = 0; r < lista.length - 1; r++) {
             for (let i = 0; i < lista.length / 2; i++) {
                 const t1 = lista[i]; const t2 = lista[lista.length - 1 - i];
-                if (t1.id !== 'folga_ficticia' && t2.id !== 'folga_ficticia') confrontos.push([t1, t2]);
+                if (t1.id !== 'folga' && t2.id !== 'folga') confrontos.push([t1, t2]);
             }
             const ultimo = lista.pop()!; lista.splice(1, 0, ultimo);
         }
-        if (regras?.turno === 'ida_volta') {
+        if (regras.turno === 'ida_volta') {
             const tamanho = confrontos.length;
             for(let i=0; i<tamanho; i++) confrontos.push([confrontos[i][1], confrontos[i][0]]);
         }
@@ -54,39 +50,48 @@ export async function POST(request: Request) {
     };
 
     const confrontosFinais = [];
+    
     if (isDuasChaves) {
         const meio = Math.ceil(timesSorteados.length / 2);
         const grupoA = timesSorteados.slice(0, meio); const grupoB = timesSorteados.slice(meio);
-        grupoA.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'A');
-        grupoB.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'B');
+        
+        // Correção: Adição do .then() para converter o construtor numa Promise nativa
+        grupoA.forEach(t => updatesTimes.push(supabase.from('times').update({ chave: 'A' }).eq('id', t.id).then()));
+        grupoB.forEach(t => updatesTimes.push(supabase.from('times').update({ chave: 'B' }).eq('id', t.id).then()));
+        
         const confA = gerarConfrontos(grupoA); const confB = gerarConfrontos(grupoB);
         const maxLen = Math.max(confA.length, confB.length);
         for(let i=0; i<maxLen; i++){ if(confA[i]) confrontosFinais.push(confA[i]); if(confB[i]) confrontosFinais.push(confB[i]); }
     } else {
-        timesSorteados.forEach(t => updates[`torneios/${torneioId}/times/${t.id}/chave`] = 'U');
+        timesSorteados.forEach(t => updatesTimes.push(supabase.from('times').update({ chave: 'U' }).eq('id', t.id).then()));
         confrontosFinais.push(...gerarConfrontos(timesSorteados));
     }
-    
-    const novasPartidas: Record<string, Partida> = {};
-    const [horaStr, minStr] = (regras?.horarioInicio || '08:00').split(':');
+
+    await Promise.all(updatesTimes);
+
+    const [horaStr, minStr] = (regras.horarioInicio || '08:00').split(':');
     let minAtual = parseInt(horaStr) * 60 + parseInt(minStr);
     
-    confrontosFinais.forEach((par, index) => {
+    const novasPartidas = confrontosFinais.map((par, index) => {
         const h = Math.floor(minAtual / 60) % 24; const m = minAtual % 60;
-        novasPartidas[`jogo_${index + 1}`] = {
-            id: `jogo_${index + 1}`, fase: 'grupos', horario: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`, status: 'pendente',
-            pontosA: 0, pontosB: 0, setsVencidosA: 0, setsVencidosB: 0, timeA: par[0] as Time, timeB: par[1] as Time
+        minAtual += (regras.intervaloMinutos || 45);
+        return {
+            torneio_id: torneioId,
+            fase: 'grupos',
+            status: 'pendente',
+            horario: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
+            time_a_id: par[0].id,
+            time_b_id: par[1].id,
+            ordem: index + 1
         };
-        minAtual += (regras?.intervaloMinutos || 45);
     });
 
-    updates[`torneios/${torneioId}/config/status`] = 'fase_grupos';
-    await update(ref(db), updates); 
-    await set(ref(db, `torneios/${torneioId}/partidas`), novasPartidas);
+    await supabase.from('partidas').insert(novasPartidas);
+    await supabase.from('torneios').update({ status: 'fase_grupos' }).eq('id', torneioId);
 
     return NextResponse.json({ sucesso: true });
   } catch (error) {
-    console.error("Erro na API de gerar tabela:", error);
+    console.error("Erro na API de gerar tabela (Supabase):", error);
     return NextResponse.json({ error: 'Erro interno no servidor' }, { status: 500 });
   }
 }

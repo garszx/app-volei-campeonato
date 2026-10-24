@@ -17,6 +17,8 @@ export default function TelaoLive({ abaAtiva, jogoAtual, proximoJogo, regras, is
   const tB_Live = isInvertido && jogoAtual ? jogoAtual.timeA : jogoAtual?.timeB;
   const ptsA_Live = isInvertido && jogoAtual ? jogoAtual.pontosB : jogoAtual?.pontosA;
   const ptsB_Live = isInvertido && jogoAtual ? jogoAtual.pontosA : jogoAtual?.pontosB;
+  const setsA_Live = isInvertido && jogoAtual ? jogoAtual.setsVencidosB : jogoAtual?.setsVencidosA;
+  const setsB_Live = isInvertido && jogoAtual ? jogoAtual.setsVencidosA : jogoAtual?.setsVencidosB;
   const isMd3Shared = (jogoAtual?.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
 
   return (
@@ -31,7 +33,7 @@ export default function TelaoLive({ abaAtiva, jogoAtual, proximoJogo, regras, is
             
             {isMd3Shared && (
               <div className={styles.setsInfo}>
-                Placar de Sets: <strong>{jogoAtual.setsVencidosA || 0}</strong> x <strong>{jogoAtual.setsVencidosB || 0}</strong>
+                Placar de Sets: <strong>{setsA_Live || 0}</strong> x <strong>{setsB_Live || 0}</strong>
               </div>
             )}
             
@@ -62,20 +64,38 @@ export default function TelaoLive({ abaAtiva, jogoAtual, proximoJogo, regras, is
             </div>
           </>
         ) : proximoJogo ? (
-          <div className={styles.mensagemEspera}>
-            <h2 className={styles.nextGameTitle}>Próxima Partida - {proximoJogo.horario}</h2>
-            <div className={styles.nextGameContainer}>
-              <div className={styles.textCenter}>
-                {regras?.mostrarLogos && <Image src={proximoJogo.timeA.escudoUrl} alt="A" width={80} height={80} className={styles.imageContain} />}
-                <p className={styles.boldText}>{proximoJogo.timeA.nome}</p>
+          <>
+            <div className={styles.headerLive}>
+              <span className={styles.horarioBadge} style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}>Próxima Partida</span> 
+              <span className={styles.horarioBadge}>{proximoJogo.horario}</span>
+            </div>
+            
+            <div className={styles.placarLive}>
+              <div className={styles.timeCol}>
+                {regras?.mostrarLogos && (
+                  <div className={styles.escudoWrapper}>
+                    <Image src={proximoJogo.timeA.escudoUrl} alt="A" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} />
+                  </div>
+                )}
+                <h3 className={styles.timeNomeLive}>{proximoJogo.timeA.nome}</h3> 
+                <span className={styles.pontuacao}>0</span>
               </div>
-              <span className={styles.vsText}>X</span>
-              <div className={styles.textCenter}>
-                {regras?.mostrarLogos && <Image src={proximoJogo.timeB.escudoUrl} alt="B" width={80} height={80} className={styles.imageContain} />}
-                <p className={styles.boldText}>{proximoJogo.timeB.nome}</p>
+              
+              <div className={styles.vsCard}>
+                <span className={styles.vsText}>X</span>
+              </div>
+              
+              <div className={styles.timeCol}>
+                {regras?.mostrarLogos && (
+                  <div className={styles.escudoWrapper}>
+                    <Image src={proximoJogo.timeB.escudoUrl} alt="B" className={`${styles.escudoLive} ${styles.imageContain}`} width={90} height={90} />
+                  </div>
+                )}
+                <h3 className={styles.timeNomeLive}>{proximoJogo.timeB.nome}</h3> 
+                <span className={styles.pontuacao}>0</span>
               </div>
             </div>
-          </div>
+          </>
         ) : (
           <div className={styles.mensagemEspera}>
             <h2>Torneio Finalizado! 🏆</h2>
