@@ -76,7 +76,7 @@ export default function PainelMesa(props: PainelMesaProps) {
   return (
     <div className={styles.container}>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: '22px', color: nivelAcesso === 'mestre' ? '#ef4444' : '#38bdf8' }}>Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}</h2>
+        <h2 style={{ margin: '0', fontSize: '22px', color: nivelAcesso === 'mestre' ? '#ef4444' : '#38bdf8' }}>Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}</h2>
         <button onClick={props.fazerLogout} style={{ padding: '6px 16px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Sair</button>
       </div>
 
@@ -250,7 +250,14 @@ export default function PainelMesa(props: PainelMesaProps) {
                     <span style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Jogo {idx + 1} {p.status !== 'finalizado' && `(${p.status})`}</span>
                     <span style={{fontWeight: '700', color: '#f8fafc', fontSize: '0.9rem'}}>{p.timeA.nome} {p.pontosA} x {p.pontosB} {p.timeB.nome}</span>
                   </div>
-                  <button onClick={() => props.abrirEdicao(p)} style={{ padding: '6px 12px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#334155', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flexShrink: 0 }}>✏️ Editar</button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => window.open(`/torneio/${window.location.pathname.split('/')[2]}/sumula/${p.id}`, '_blank')} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flexShrink: 0 }}>
+                      📄 Súmula
+                    </button>
+                    <button onClick={() => props.abrirEdicao(p)} style={{ padding: '6px 12px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#334155', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flexShrink: 0 }}>
+                      ✏️ Editar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
