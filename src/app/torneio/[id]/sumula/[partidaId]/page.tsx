@@ -49,7 +49,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     try {
       // Tira uma foto em alta resolução do layout perfeito na tela
       const canvas = await html2canvas(sumulaRef.current, {
-        scale: 2, 
+        scale: 4, 
         useCORS: true,
         backgroundColor: '#ffffff'
       });
