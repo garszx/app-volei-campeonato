@@ -328,10 +328,40 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
 
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          @page { size: landscape A4; margin: 8mm; }
+          @page { 
+            size: landscape A4; 
+            margin: 5mm; 
+          }
+          /* Esconde os cabeçalhos/rodapés automáticos do navegador */
+          body { 
+            margin: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
           .no-print { display: none !important; }
-          body, html { background-color: #ffffff !important; margin: 0; padding: 0; }
-          .cbv-page { padding: 0 !important; background: #fff !important; }
+          
+          body, html { 
+            background-color: #ffffff !important; 
+            padding: 0; 
+            height: 100%;
+            overflow: hidden;
+          }
+          
+          .cbv-page { 
+            padding: 0 !important; 
+            background: #fff !important; 
+            display: block; /* Remove o flex que pode causar bugs na altura */
+          }
+          
+          .cbv-container {
+            /* Força a súmula a não ultrapassar a altura máxima da página A4 */
+            max-height: 98vh; 
+            overflow: hidden;
+            /* Se ainda assim estiver grande, aplica um leve zoom out */
+            zoom: 0.95; 
+            page-break-inside: avoid;
+          }
         }
         
         .cbv-page { background-color: #f1f5f9; min-height: 100vh; padding: 2rem; display: flex; flex-direction: column; align-items: center; }
