@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { supabase } from '../../../../../supabase';
 import { Partida, Regras, TimeDb } from '../../../../../types/torneio';
 
@@ -10,6 +11,9 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
   const [jogo, setJogo] = useState<Partida | null>(null);
   const [regras, setRegras] = useState<Regras | null>(null);
   const [carregando, setCarregando] = useState(true);
+  
+  // Referência atualizada para o react-to-print v3
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function carregarSumula() {
@@ -36,6 +40,12 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     }
     carregarSumula();
   }, [id, partidaId]);
+
+  // Função de impressão corrigida para a v3
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef,
+    documentTitle: `Sumula_${jogo?.timeA?.nome}_x_${jogo?.timeB?.nome}`,
+  });
 
   if (carregando) return <div style={{ padding: '2rem', textAlign: 'center', color: '#000' }}>A carregar súmula...</div>;
   if (!jogo) return <div style={{ padding: '2rem', textAlign: 'center', color: 'red' }}>Partida não encontrada.</div>;
@@ -87,30 +97,12 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
           <td style={{ width: '13%', fontWeight: 'bold' }}>V</td>
           <td style={{ width: '13%', fontWeight: 'bold' }}>VI</td>
         </tr>
-        <tr>
-          <td>INICIAL</td>
-          {Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}
-        </tr>
-        <tr>
-          <td>SUBSTITUTO</td>
-          {Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}
-        </tr>
-        <tr>
-          <td>PLACAR (IN)</td>
-          {Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}
-        </tr>
-        <tr>
-          <td>PLACAR (OUT)</td>
-          {Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}
-        </tr>
-        <tr>
-          <td>SAQUE 1</td>
-          {Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#999' }}>[ ]</td>)}
-        </tr>
-        <tr>
-          <td>SAQUE 2</td>
-          {Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#999' }}>[ ]</td>)}
-        </tr>
+        <tr><td>INICIAL</td>{Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}</tr>
+        <tr><td>SUBSTITUTO</td>{Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}</tr>
+        <tr><td>PLACAR (IN)</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
+        <tr><td>PLACAR (OUT)</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
+        <tr><td>SAQUE 1</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#999' }}>[ ]</td>)}</tr>
+        <tr><td>SAQUE 2</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#999' }}>[ ]</td>)}</tr>
       </tbody>
     </table>
   );
@@ -122,8 +114,8 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <span>SORTEIO: [ &nbsp;] SAQUE &nbsp; [ &nbsp;] RECEPÇÃO</span>
         <span>INÍCIO: ___:___ | FIM: ___:___</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <table className="table-bordered" style={{ borderTop: 'none', flex: 1, height: '100%' }}>
+      <div>
+        <table className="table-bordered" style={{ borderTop: 'none' }}>
           <tbody>
             <tr>
               <td style={{ width: '13%', borderTop: 'none' }}>
@@ -148,9 +140,9 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
   );
 
   const renderEscalacao = (time: TimeDb, isEquipeA: boolean) => (
-    <div className="roster-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div className="roster-wrapper" style={{ width: '50%', float: 'left' }}>
       <div className="section-title">EQUIPE {isEquipeA ? 'A' : 'B'}: {time.nome}</div>
-      <table className="table-bordered table-sm" style={{ flex: 1 }}>
+      <table className="table-bordered table-sm">
         <thead>
           <tr>
             <th style={{ width: '15%' }}>Nº</th>
@@ -173,14 +165,18 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
   );
 
   return (
-    <div className="cbv-page">
+    <div style={{ backgroundColor: '#f1f5f9', minHeight: '100vh', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      
+      {/* Botão de impressão nativo com a biblioteca */}
       <div className="no-print" style={{ textAlign: 'center', marginBottom: '1rem', width: '100%' }}>
-        <button onClick={() => window.print()} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
+        <button onClick={() => handlePrint()} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
           🖨️ Imprimir Súmula Oficial
         </button>
       </div>
 
-      <div className="cbv-container">
+      {/* Container que será enviado para a impressora. Usa contentRef agora. */}
+      <div ref={contentRef} className="cbv-container">
+        
         {/* CABEÇALHO OFICIAL */}
         <div className="header-box">
           <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #000' }}>
@@ -200,17 +196,17 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         </div>
 
         <div className="main-grid">
-          {/* COLUNA ESQUERDA: SETS */}
+          
+          {/* COLUNA ESQUERDA: SETS e SANÇÕES */}
           <div className="left-col">
             <div className="sets-container">
               {Array.from({ length: numeroSets }).map((_, i) => renderSetGrid(i + 1))}
             </div>
             
-            {/* LINHA DE SANÇÕES E OBSERVAÇÕES */}
-            <div style={{ display: 'flex', gap: '4px', marginTop: 'auto', height: '100%' }}>
-              <div className="roster-wrapper" style={{ flex: 1.2, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+              <div className="roster-wrapper" style={{ width: '40%' }}>
                 <div className="section-title">SANÇÕES</div>
-                <table className="table-bordered table-sm sanctions-table" style={{ flex: 1 }}>
+                <table className="table-bordered table-sm sanctions-table">
                   <thead>
                     <tr>
                       <th title="Advertência">A</th>
@@ -229,23 +225,21 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
                   </tbody>
                 </table>
               </div>
-
-              <div className="roster-wrapper" style={{ flex: 2, display: 'flex', flexDirection: 'column' }}>
+              <div className="roster-wrapper" style={{ width: '60%' }}>
                 <div className="section-title">OBSERVAÇÕES</div>
-                <div style={{ flex: 1, padding: '2px', borderBottom: '1px solid #ccc' }}></div>
+                <div style={{ padding: '2px', height: '60px' }}></div>
               </div>
             </div>
           </div>
 
           {/* COLUNA DIREITA: ESCALAÇÕES E RESULTADOS */}
           <div className="right-col">
-            <div style={{ display: 'flex', gap: '4px', flex: '1 1 auto' }}>
+            <div style={{ overflow: 'hidden', marginBottom: '4px' }}>
               {renderEscalacao(jogo.timeA as TimeDb, true)}
               {renderEscalacao(jogo.timeB as TimeDb, false)}
             </div>
 
-            {/* CAIXA DE APROVAÇÃO / ARBITRAGEM COMPLETA */}
-            <div className="roster-wrapper" style={{ flex: '0 0 auto' }}>
+            <div className="roster-wrapper" style={{ marginBottom: '4px' }}>
               <div className="section-title">APROVAÇÃO (ARBITRAGEM)</div>
               <table className="table-bordered table-sm referee-table">
                 <tbody>
@@ -258,8 +252,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
               </table>
             </div>
 
-            {/* CAIXA DE RESULTADOS (Padrão CBV) */}
-            <div className="roster-wrapper" style={{ flex: '0 0 auto', border: '2px solid #000' }}>
+            <div className="roster-wrapper" style={{ border: '2px solid #000' }}>
               <div className="section-title" style={{ backgroundColor: '#000', color: '#fff' }}>RESULTADOS</div>
               
               <div style={{ display: 'flex', borderBottom: '1px solid #000' }}>
@@ -319,100 +312,36 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `
-        /* REGRAS EXCLUSIVAS PARA IMPRESSÃO */
         @media print {
-          @page { 
-            size: A4 landscape; 
-            margin: 5mm; 
-          }
-          
-          body, html { 
-            margin: 0 !important; 
-            padding: 0 !important;
-            background-color: #ffffff !important; 
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          
-          .no-print { display: none !important; }
-          
-          .cbv-page { 
-            padding: 0 !important; 
-            background: #fff !important; 
-            display: block !important;
-          }
-          
-          .cbv-container {
-            width: 100% !important;
-            max-width: 285mm !important; /* Limite físico da largura A4 */
-            height: 190mm !important;    /* Limite físico da altura A4 */
-            margin: 0 auto !important;
-            border: 2px solid #000 !important;
-            padding: 2mm !important;
-            display: flex !important;
-            flex-direction: column !important;
-            transform: none !important;  /* Remove o zoom que estava a causar o corte */
-            page-break-inside: avoid !important;
-          }
-
-          /* Força as fontes a ficarem minúsculas para caber */
-          * { line-height: 1.1 !important; }
-          .header-title { font-size: 11pt !important; margin: 0 0 2px 0 !important; }
-          .header-info span { font-size: 7pt !important; }
-          .header-logo { font-size: 12pt !important; width: 180px !important; }
-          
-          .section-title { font-size: 7pt !important; padding: 2px !important; }
-          .set-header { font-size: 7pt !important; padding: 2px 4px !important; }
-          .team-name { font-size: 8pt !important; }
-          .tempos-text { font-size: 6pt !important; }
-          
-          .table-bordered th, .table-bordered td { padding: 1px !important; }
-          .table-sm td, .table-sm th { height: auto !important; padding: 1px !important; }
-          
-          .rotation-table { font-size: 6pt !important; }
-          .rotation-table td { height: auto !important; padding: 1px !important; }
-          
-          .point-box { width: 10px !important; height: 10px !important; font-size: 6pt !important; }
-          
-          .libero-text { font-size: 7pt !important; padding: 1px !important; }
-          .signature-box { font-size: 7pt !important; padding: 2px !important; }
-          
-          .referee-table td { font-size: 7pt !important; text-align: left !important; }
-          .results-table th, .results-table td { font-size: 7pt !important; }
-          .score-cell { font-size: 8pt !important; }
-          
-          .result-team { font-size: 8pt !important; padding: 2px !important; }
-          .result-set { font-size: 8pt !important; padding: 2px !important; width: 25px !important; }
-          .winner-box { font-size: 8pt !important; padding: 4px !important; }
+          @page { size: landscape; margin: 5mm; }
+          .cbv-container { transform: scale(0.95); transform-origin: top left; }
         }
         
-        /* REGRAS PARA O NAVEGADOR (TELA) */
-        .cbv-page { background-color: #f1f5f9; min-height: 100vh; padding: 2rem; display: flex; flex-direction: column; align-items: center; }
-        .cbv-container { font-family: 'Arial', sans-serif; color: #000; background: #fff; width: 100%; max-width: 1200px; height: auto; min-height: 800px; margin: 0 auto; box-sizing: border-box; border: 2px solid #000; padding: 6px; display: flex; flex-direction: column; }
+        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1040px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 6px; }
         
-        .header-box { display: flex; border: 2px solid #000; margin-bottom: 6px; flex: 0 0 auto; }
+        .header-box { display: flex; border: 2px solid #000; margin-bottom: 6px; }
         .header-title { margin: 0 0 4px 0; font-size: 16px; text-transform: uppercase; }
         .header-info { font-size: 11px; display: flex; gap: 20px; }
-        .header-logo { width: 200px; display: flex; flex-direction: column; alignItems: center; justify-content: center; background-color: #e5e5e5; font-weight: 900; font-size: 14px; text-align: center; }
+        .header-logo { width: 180px; display: flex; align-items: center; justify-content: center; background-color: #e5e5e5; font-weight: 900; font-size: 14px; text-align: center; }
 
-        .main-grid { display: flex; gap: 6px; flex: 1 1 auto; overflow: hidden; }
-        .left-col { flex: 1.6; display: flex; flex-direction: column; gap: 6px; }
-        .right-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .main-grid { display: flex; gap: 6px; }
+        .left-col { width: 62%; }
+        .right-col { width: 38%; }
         
-        .sets-container { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .sets-container { display: flex; flex-direction: column; gap: 4px; }
         
         .table-bordered { border-collapse: collapse; width: 100%; text-align: center; }
         .table-bordered th, .table-bordered td { border: 1px solid #000; padding: 2px; }
-        .table-sm td, .table-sm th { padding: 1px !important; height: 16px; }
+        .table-sm td, .table-sm th { padding: 1px !important; height: 14px; }
         
         .section-title { font-weight: bold; background-color: #e5e5e5; text-transform: uppercase; border-bottom: 1px solid #000; padding: 3px; text-align: center; font-size: 10px; }
-        .set-wrapper { border: 2px solid #000; display: flex; flex-direction: column; flex: 1; }
+        .set-wrapper { border: 2px solid #000; }
         .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 3px 6px; font-size: 10px; }
-        .team-name { font-size: 11px; }
+        .team-name { font-size: 10px; }
         .tempos-text { font-size: 9px; }
         
         .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 7px; }
-        .rotation-table td { border: 1px solid #000; padding: 1px; height: 12px; }
+        .rotation-table td { border: 1px solid #000; padding: 1px; height: 11px; }
         
         .points-container { display: flex; flex-wrap: wrap; gap: 1px; padding: 2px; justify-content: flex-start; }
         .point-box { width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 7px; color: #333; font-weight: bold; }
@@ -426,7 +355,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         .score-cell { font-size: 11px; font-weight: bold; }
         .result-team { flex: 1; text-align: center; font-size: 10px; font-weight: bold; border-right: 1px solid #000; padding: 3px; word-break: break-word; }
         .result-set { width: 30px; text-align: center; font-size: 10px; font-weight: bold; border-right: 1px solid #000; padding: 3px; }
-        .winner-box { padding: 6px; text-align: center; font-size: 11px; border-top: 1px solid #000; background-color: #e5e5e5; }
+        .winner-box { padding: 4px; text-align: center; font-size: 11px; border-top: 1px solid #000; background-color: #e5e5e5; }
       `}} />
     </div>
   );
