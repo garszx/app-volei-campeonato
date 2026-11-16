@@ -122,35 +122,35 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <span>SORTEIO: [ &nbsp;] SAQUE &nbsp; [ &nbsp;] RECEPÇÃO</span>
         <span>INÍCIO: ___:___ | FIM: ___:___</span>
       </div>
-      <table className="table-bordered" style={{ borderTop: 'none' }}>
-        <tbody>
-          <tr>
-            <td style={{ width: '13%', borderTop: 'none' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', wordBreak: 'break-word' }}>{jogo.timeA.nome}</div>
-              <div style={{ fontSize: '10px', marginTop: '10px' }}>Tempos:</div>
-              <div style={{ fontSize: '10px' }}>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
-            </td>
-            <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0', borderTop: 'none' }}>{renderRotacoes()}</td>
-            <td style={{ width: '40%', padding: '3px', borderTop: 'none' }}>{renderPontosGrid()}</td>
-          </tr>
-          <tr>
-            <td style={{ width: '13%' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', wordBreak: 'break-word' }}>{jogo.timeB.nome}</div>
-              <div style={{ fontSize: '10px', marginTop: '10px' }}>Tempos:</div>
-              <div style={{ fontSize: '10px' }}>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
-            </td>
-            <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0' }}>{renderRotacoes()}</td>
-            <td style={{ width: '40%', padding: '3px' }}>{renderPontosGrid()}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <table className="table-bordered" style={{ borderTop: 'none', flex: 1, height: '100%' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '13%', borderTop: 'none' }}>
+                <div className="team-name" style={{ fontWeight: 'bold', marginBottom: '2px', wordBreak: 'break-word' }}>{jogo.timeA.nome}</div>
+                <div className="tempos-text">Tempos:<br/>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
+              </td>
+              <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0', borderTop: 'none' }}>{renderRotacoes()}</td>
+              <td style={{ width: '40%', padding: '1px', borderTop: 'none' }}>{renderPontosGrid()}</td>
+            </tr>
+            <tr>
+              <td style={{ width: '13%' }}>
+                <div className="team-name" style={{ fontWeight: 'bold', marginBottom: '2px', wordBreak: 'break-word' }}>{jogo.timeB.nome}</div>
+                <div className="tempos-text">Tempos:<br/>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
+              </td>
+              <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0' }}>{renderRotacoes()}</td>
+              <td style={{ width: '40%', padding: '1px' }}>{renderPontosGrid()}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 
   const renderEscalacao = (time: TimeDb, isEquipeA: boolean) => (
-    <div className="roster-wrapper">
+    <div className="roster-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div className="section-title">EQUIPE {isEquipeA ? 'A' : 'B'}: {time.nome}</div>
-      <table className="table-bordered table-sm">
+      <table className="table-bordered table-sm" style={{ flex: 1 }}>
         <thead>
           <tr>
             <th style={{ width: '15%' }}>Nº</th>
@@ -163,20 +163,18 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
           ))}
         </tbody>
       </table>
-      <div style={{ fontSize: '10px', padding: '4px', borderTop: '1px solid #000' }}>LÍBEROS:</div>
+      <div className="libero-text">LÍBEROS:</div>
       <div style={{ display: 'flex', borderTop: '1px solid #000' }}>
-        <div style={{ flex: 1, padding: '4px', borderRight: '1px solid #000' }}>Nº ___</div>
-        <div style={{ flex: 1, padding: '4px' }}>Nº ___</div>
+        <div className="libero-text" style={{ flex: 1, padding: '2px', borderRight: '1px solid #000' }}>Nº ___</div>
+        <div className="libero-text" style={{ flex: 1, padding: '2px' }}>Nº ___</div>
       </div>
-      <div style={{ padding: '6px', borderTop: '1px solid #000', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>
-        Assinatura Capitão: ____________________
-      </div>
+      <div className="signature-box">Assinatura Capitão: ____________________</div>
     </div>
   );
 
   return (
     <div className="cbv-page">
-      <div className="no-print" style={{ textAlign: 'center', marginBottom: '1rem' }}>
+      <div className="no-print" style={{ textAlign: 'center', marginBottom: '1rem', width: '100%' }}>
         <button onClick={() => window.print()} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
           🖨️ Imprimir Súmula Oficial
         </button>
@@ -185,34 +183,34 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       <div className="cbv-container">
         {/* CABEÇALHO OFICIAL */}
         <div className="header-box">
-          <div style={{ flex: 1, padding: '10px', borderRight: '2px solid #000' }}>
-            <h1 style={{ margin: '0 0 6px 0', fontSize: '18px', textTransform: 'uppercase' }}>{regras?.nomeCampeonato || 'Campeonato de Voleibol'}</h1>
-            <div style={{ fontSize: '12px', display: 'flex', gap: '20px' }}>
+          <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #000' }}>
+            <h1 className="header-title">{regras?.nomeCampeonato || 'Campeonato de Voleibol'}</h1>
+            <div className="header-info">
               <span><b>FASE:</b> {jogo.fase.toUpperCase()}</span>
               <span><b>JOGO Nº:</b> {jogo.ordem || jogo.numero || '-'}</span>
               <span><b>NAIPE:</b> [ ] M [ ] F</span>
             </div>
-            <div style={{ fontSize: '12px', display: 'flex', gap: '20px', marginTop: '6px' }}>
+            <div className="header-info" style={{ marginTop: '2px' }}>
               <span><b>DATA:</b> ___/___/20__</span>
               <span><b>HORÁRIO OFICIAL:</b> {jogo.horario}</span>
               <span><b>CIDADE:</b> ___________________</span>
             </div>
           </div>
-          <div style={{ width: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e5e5e5', fontWeight: '900', fontSize: '16px', textAlign: 'center' }}>
-            SÚMULA OFICIAL<br/>DE VOLEIBOL
-          </div>
+          <div className="header-logo">SÚMULA OFICIAL<br/>DE VOLEIBOL</div>
         </div>
 
         <div className="main-grid">
           {/* COLUNA ESQUERDA: SETS */}
           <div className="left-col">
-            {Array.from({ length: numeroSets }).map((_, i) => renderSetGrid(i + 1))}
+            <div className="sets-container">
+              {Array.from({ length: numeroSets }).map((_, i) => renderSetGrid(i + 1))}
+            </div>
             
             {/* LINHA DE SANÇÕES E OBSERVAÇÕES */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
-              <div className="roster-wrapper" style={{ flex: 1.2 }}>
+            <div style={{ display: 'flex', gap: '4px', marginTop: 'auto', height: '100%' }}>
+              <div className="roster-wrapper" style={{ flex: 1.2, display: 'flex', flexDirection: 'column' }}>
                 <div className="section-title">SANÇÕES</div>
-                <table className="table-bordered table-sm" style={{ fontSize: '10px' }}>
+                <table className="table-bordered table-sm sanctions-table" style={{ flex: 1 }}>
                   <thead>
                     <tr>
                       <th title="Advertência">A</th>
@@ -226,34 +224,30 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
                   </thead>
                   <tbody>
                     {Array.from({ length: 4 }).map((_, i) => (
-                      <tr key={i}>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                      </tr>
+                      <tr key={i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              <div className="roster-wrapper" style={{ flex: 2 }}>
+              <div className="roster-wrapper" style={{ flex: 2, display: 'flex', flexDirection: 'column' }}>
                 <div className="section-title">OBSERVAÇÕES</div>
-                <div style={{ height: '78px', padding: '4px', fontSize: '11px', lineHeight: '16px', borderBottom: '1px solid #ccc' }}>
-                  <br/><br/><br/><br/>
-                </div>
+                <div style={{ flex: 1, padding: '2px', borderBottom: '1px solid #ccc' }}></div>
               </div>
             </div>
           </div>
 
           {/* COLUNA DIREITA: ESCALAÇÕES E RESULTADOS */}
           <div className="right-col">
-            <div style={{ display: 'flex', gap: '5px' }}>
-              <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeA as TimeDb, true)}</div>
-              <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeB as TimeDb, false)}</div>
+            <div style={{ display: 'flex', gap: '4px', flex: '1 1 auto' }}>
+              {renderEscalacao(jogo.timeA as TimeDb, true)}
+              {renderEscalacao(jogo.timeB as TimeDb, false)}
             </div>
 
             {/* CAIXA DE APROVAÇÃO / ARBITRAGEM COMPLETA */}
-            <div className="roster-wrapper" style={{ marginTop: '5px' }}>
+            <div className="roster-wrapper" style={{ flex: '0 0 auto' }}>
               <div className="section-title">APROVAÇÃO (ARBITRAGEM)</div>
-              <table className="table-bordered table-sm" style={{ fontSize: '11px', textAlign: 'left' }}>
+              <table className="table-bordered table-sm referee-table">
                 <tbody>
                   <tr><td style={{ width: '60%' }}>1º Árbitro:</td><td>Assinatura:</td></tr>
                   <tr><td>2º Árbitro:</td><td>Assinatura:</td></tr>
@@ -265,16 +259,16 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
             </div>
 
             {/* CAIXA DE RESULTADOS (Padrão CBV) */}
-            <div className="roster-wrapper" style={{ marginTop: '5px', border: '2px solid #000' }}>
+            <div className="roster-wrapper" style={{ flex: '0 0 auto', border: '2px solid #000' }}>
               <div className="section-title" style={{ backgroundColor: '#000', color: '#fff' }}>RESULTADOS</div>
               
               <div style={{ display: 'flex', borderBottom: '1px solid #000' }}>
-                <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px', wordBreak: 'break-word' }}>{jogo.timeA.nome}</div>
-                <div style={{ width: '35px', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px' }}>SET</div>
-                <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', padding: '4px', wordBreak: 'break-word' }}>{jogo.timeB.nome}</div>
+                <div className="result-team">{jogo.timeA.nome}</div>
+                <div className="result-set">SET</div>
+                <div className="result-team">{jogo.timeB.nome}</div>
               </div>
 
-              <table className="table-bordered table-sm" style={{ fontSize: '11px', borderTop: 'none' }}>
+              <table className="table-bordered table-sm results-table" style={{ borderTop: 'none' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f0f0f0' }}>
                     <th style={{ width: '12%' }}>T</th>
@@ -291,30 +285,28 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
                 <tbody>
                   {linhasResultado.map((linha, i) => (
                     <tr key={i}>
-                      <td></td>
-                      <td></td>
+                      <td></td><td></td>
                       <td style={{ fontWeight: 'bold' }}>{linha.vA}</td>
-                      <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{linha.pA}</td>
+                      <td className="score-cell">{linha.pA}</td>
                       <td style={{ backgroundColor: '#e5e5e5', fontWeight: 'bold' }}>{i + 1}</td>
-                      <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{linha.pB}</td>
+                      <td className="score-cell">{linha.pB}</td>
                       <td style={{ fontWeight: 'bold' }}>{linha.vB}</td>
-                      <td></td>
-                      <td></td>
+                      <td></td><td></td>
                     </tr>
                   ))}
                   <tr style={{ backgroundColor: '#f9f9f9' }}>
                     <td colSpan={2} style={{ fontWeight: 'bold', textAlign: 'right', paddingRight: '4px' }}>TOTAL</td>
-                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{jogo.setsVencidosA || 0}</td>
-                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{totalPtsA || 0}</td>
+                    <td style={{ fontWeight: 'bold' }}>{jogo.setsVencidosA || 0}</td>
+                    <td style={{ fontWeight: 'bold' }}>{totalPtsA || 0}</td>
                     <td style={{ backgroundColor: '#000', color: '#fff', fontWeight: 'bold' }}>T</td>
-                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{totalPtsB || 0}</td>
-                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{jogo.setsVencidosB || 0}</td>
+                    <td style={{ fontWeight: 'bold' }}>{totalPtsB || 0}</td>
+                    <td style={{ fontWeight: 'bold' }}>{jogo.setsVencidosB || 0}</td>
                     <td colSpan={2} style={{ fontWeight: 'bold', textAlign: 'left', paddingLeft: '4px' }}>TOTAL</td>
                   </tr>
                 </tbody>
               </table>
               
-              <div style={{ padding: '8px', textAlign: 'center', fontSize: '12px', borderTop: '1px solid #000', backgroundColor: '#e5e5e5' }}>
+              <div className="winner-box">
                 <b>VENCEDOR: </b> 
                 {isFinalizado 
                   ? ((jogo.setsVencidosA || 0) > (jogo.setsVencidosB || 0) ? jogo.timeA.nome.toUpperCase() : jogo.timeB.nome.toUpperCase()) 
@@ -327,69 +319,114 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `
+        /* REGRAS EXCLUSIVAS PARA IMPRESSÃO */
         @media print {
           @page { 
             size: A4 landscape; 
-            margin: 0; 
+            margin: 5mm; 
           }
           
-          .no-print { display: none !important; }
-          
           body, html { 
+            margin: 0 !important; 
+            padding: 0 !important;
             background-color: #ffffff !important; 
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
+          .no-print { display: none !important; }
+          
           .cbv-page { 
             padding: 0 !important; 
             background: #fff !important; 
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
+            display: block !important;
           }
           
-          /* A magia acontece aqui: em vez de tentar cortar, encolhemos o quadro inteiro */
           .cbv-container {
-            width: 1200px !important; /* Mantém a largura original grande para boa leitura */
-            transform-origin: top center;
-            /* 0.88 é a escala ideal para caber perfeitamente no A4 sem cortar a base */
-            transform: scale(0.88) !important; 
-            margin: 5mm auto 0 auto !important;
-            border: 2px solid #000;
-            page-break-inside: avoid;
+            width: 100% !important;
+            max-width: 285mm !important; /* Limite físico da largura A4 */
+            height: 190mm !important;    /* Limite físico da altura A4 */
+            margin: 0 auto !important;
+            border: 2px solid #000 !important;
+            padding: 2mm !important;
+            display: flex !important;
+            flex-direction: column !important;
+            transform: none !important;  /* Remove o zoom que estava a causar o corte */
+            page-break-inside: avoid !important;
           }
+
+          /* Força as fontes a ficarem minúsculas para caber */
+          * { line-height: 1.1 !important; }
+          .header-title { font-size: 11pt !important; margin: 0 0 2px 0 !important; }
+          .header-info span { font-size: 7pt !important; }
+          .header-logo { font-size: 12pt !important; width: 180px !important; }
+          
+          .section-title { font-size: 7pt !important; padding: 2px !important; }
+          .set-header { font-size: 7pt !important; padding: 2px 4px !important; }
+          .team-name { font-size: 8pt !important; }
+          .tempos-text { font-size: 6pt !important; }
+          
+          .table-bordered th, .table-bordered td { padding: 1px !important; }
+          .table-sm td, .table-sm th { height: auto !important; padding: 1px !important; }
+          
+          .rotation-table { font-size: 6pt !important; }
+          .rotation-table td { height: auto !important; padding: 1px !important; }
+          
+          .point-box { width: 10px !important; height: 10px !important; font-size: 6pt !important; }
+          
+          .libero-text { font-size: 7pt !important; padding: 1px !important; }
+          .signature-box { font-size: 7pt !important; padding: 2px !important; }
+          
+          .referee-table td { font-size: 7pt !important; text-align: left !important; }
+          .results-table th, .results-table td { font-size: 7pt !important; }
+          .score-cell { font-size: 8pt !important; }
+          
+          .result-team { font-size: 8pt !important; padding: 2px !important; }
+          .result-set { font-size: 8pt !important; padding: 2px !important; width: 25px !important; }
+          .winner-box { font-size: 8pt !important; padding: 4px !important; }
         }
         
-        /* CSS TELA */
+        /* REGRAS PARA O NAVEGADOR (TELA) */
         .cbv-page { background-color: #f1f5f9; min-height: 100vh; padding: 2rem; display: flex; flex-direction: column; align-items: center; }
-        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 100%; max-width: 1150px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 8px; display: flex; flex-direction: column; }
+        .cbv-container { font-family: 'Arial', sans-serif; color: #000; background: #fff; width: 100%; max-width: 1200px; height: auto; min-height: 800px; margin: 0 auto; box-sizing: border-box; border: 2px solid #000; padding: 6px; display: flex; flex-direction: column; }
         
-        .header-box { display: flex; border: 2px solid #000; margin-bottom: 8px; }
-        .main-grid { display: flex; gap: 8px; flex: 1; }
-        .left-col { flex: 1.6; display: flex; flex-direction: column; gap: 8px; justify-content: flex-start; }
-        .right-col { flex: 1; display: flex; flex-direction: column; }
+        .header-box { display: flex; border: 2px solid #000; margin-bottom: 6px; flex: 0 0 auto; }
+        .header-title { margin: 0 0 4px 0; font-size: 16px; text-transform: uppercase; }
+        .header-info { font-size: 11px; display: flex; gap: 20px; }
+        .header-logo { width: 200px; display: flex; flex-direction: column; alignItems: center; justify-content: center; background-color: #e5e5e5; font-weight: 900; font-size: 14px; text-align: center; }
+
+        .main-grid { display: flex; gap: 6px; flex: 1 1 auto; overflow: hidden; }
+        .left-col { flex: 1.6; display: flex; flex-direction: column; gap: 6px; }
+        .right-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        
+        .sets-container { display: flex; flex-direction: column; gap: 4px; flex: 1; }
         
         .table-bordered { border-collapse: collapse; width: 100%; text-align: center; }
-        .table-bordered th, .table-bordered td { border: 1px solid #000; padding: 3px; }
-        .table-sm td, .table-sm th { padding: 2px !important; height: 16px; }
+        .table-bordered th, .table-bordered td { border: 1px solid #000; padding: 2px; }
+        .table-sm td, .table-sm th { padding: 1px !important; height: 16px; }
         
-        .section-title { font-weight: bold; background-color: #e5e5e5; text-transform: uppercase; border-bottom: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
-        .set-wrapper { border: 2px solid #000; }
-        .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 4px 8px; font-size: 11px; }
+        .section-title { font-weight: bold; background-color: #e5e5e5; text-transform: uppercase; border-bottom: 1px solid #000; padding: 3px; text-align: center; font-size: 10px; }
+        .set-wrapper { border: 2px solid #000; display: flex; flex-direction: column; flex: 1; }
+        .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 3px 6px; font-size: 10px; }
+        .team-name { font-size: 11px; }
+        .tempos-text { font-size: 9px; }
         
-        .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 8px; }
-        .rotation-table td { border: 1px solid #000; padding: 1px; height: 13px; }
+        .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 7px; }
+        .rotation-table td { border: 1px solid #000; padding: 1px; height: 12px; }
         
-        .points-container { display: flex; flex-wrap: wrap; gap: 1px; padding: 3px; justify-content: flex-start; }
-        .point-box { width: 13px; height: 13px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 8px; color: #333; font-weight: bold; }
+        .points-container { display: flex; flex-wrap: wrap; gap: 1px; padding: 2px; justify-content: flex-start; }
+        .point-box { width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 7px; color: #333; font-weight: bold; }
         
         .roster-wrapper { border: 1px solid #000; }
+        .libero-text { font-size: 9px; padding: 2px; border-top: 1px solid #000; }
+        .signature-box { padding: 4px; border-top: 1px solid #000; font-size: 10px; font-weight: bold; text-align: center; }
+        
+        .referee-table { font-size: 10px; text-align: left; }
+        .results-table { font-size: 10px; }
+        .score-cell { font-size: 11px; font-weight: bold; }
+        .result-team { flex: 1; text-align: center; font-size: 10px; font-weight: bold; border-right: 1px solid #000; padding: 3px; word-break: break-word; }
+        .result-set { width: 30px; text-align: center; font-size: 10px; font-weight: bold; border-right: 1px solid #000; padding: 3px; }
+        .winner-box { padding: 6px; text-align: center; font-size: 11px; border-top: 1px solid #000; background-color: #e5e5e5; }
       `}} />
     </div>
   );
