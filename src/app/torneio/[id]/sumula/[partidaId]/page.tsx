@@ -329,46 +329,53 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           @page { 
-            size: landscape A4; 
-            margin: 5mm; 
-          }
-          /* Esconde os cabeçalhos/rodapés automáticos do navegador */
-          body { 
-            margin: 0;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            size: A4 landscape; 
+            margin: 0; /* Remove a margem da impressora para controlarmos no CSS */
           }
           
+          /* Esconde elementos indesejados */
           .no-print { display: none !important; }
           
+          /* Prepara o corpo para a impressão */
           body, html { 
             background-color: #ffffff !important; 
-            padding: 0; 
-            height: 100%;
-            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           
           .cbv-page { 
             padding: 0 !important; 
             background: #fff !important; 
-            display: block; /* Remove o flex que pode causar bugs na altura */
+            display: block; /* Remove Flexbox que causa quebras imprevistas */
           }
           
+          /* Força a súmula a caber nas dimensões físicas de um A4 Paisagem (297mm x 210mm) */
           .cbv-container {
-            /* Força a súmula a não ultrapassar a altura máxima da página A4 */
-            max-height: 98vh; 
-            overflow: hidden;
-            /* Se ainda assim estiver grande, aplica um leve zoom out */
-            zoom: 0.95; 
+            width: 287mm !important; /* 297mm - 10mm de margem */
+            height: 200mm !important; /* 210mm - 10mm de margem */
+            max-width: none !important;
+            margin: 5mm auto !important;
+            padding: 5mm !important;
+            box-sizing: border-box;
+            border: 1px solid #000;
+            page-break-after: avoid;
             page-break-inside: avoid;
+            overflow: hidden; /* Corta qualquer pixel extra que tente forçar uma página 2 */
+            /* Garante que o layout interno se adapta ao novo tamanho fixo */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
           }
         }
         
+        /* CSS PARA TELA (Visualização Normal) */
         .cbv-page { background-color: #f1f5f9; min-height: 100vh; padding: 2rem; display: flex; flex-direction: column; align-items: center; }
-        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 100%; max-width: 1150px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 8px; }
+        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 100%; max-width: 1150px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 8px; display: flex; flex-direction: column; }
         
         .header-box { display: flex; border: 2px solid #000; margin-bottom: 8px; }
-        .main-grid { display: flex; gap: 8px; }
+        .main-grid { display: flex; gap: 8px; flex: 1; }
         .left-col { flex: 1.6; display: flex; flex-direction: column; gap: 8px; }
         .right-col { flex: 1; display: flex; flex-direction: column; }
         
