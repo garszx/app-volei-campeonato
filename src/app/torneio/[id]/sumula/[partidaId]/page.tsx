@@ -47,9 +47,8 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     setGerandoPDF(true);
     
     try {
-      // Tira uma foto em alta resolução do layout perfeito na tela
       const canvas = await html2canvas(sumulaRef.current, {
-        scale: 4, 
+        scale: 4, // Alta resolução mantida
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -57,10 +56,9 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'landscape', format: 'a4' });
       
-      const pdfWidth = pdf.internal.pageSize.getWidth(); // Largura do A4
-      const pdfHeight = pdf.internal.pageSize.getHeight(); // Altura do A4
+      const pdfWidth = pdf.internal.pageSize.getWidth(); 
+      const pdfHeight = pdf.internal.pageSize.getHeight(); 
       
-      // Calcula a proporção para caber na folha sem NUNCA esticar ou esmagar
       const canvasRatio = canvas.width / canvas.height;
       let renderWidth = pdfWidth;
       let renderHeight = pdfWidth / canvasRatio;
@@ -70,7 +68,6 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         renderWidth = pdfHeight * canvasRatio;
       }
       
-      // Centraliza na folha
       const x = (pdfWidth - renderWidth) / 2;
       const y = (pdfHeight - renderHeight) / 2;
       
@@ -114,21 +111,34 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     return <div className="points-container">{pts}</div>;
   };
 
+  // ATUALIZADO: Grelha de rotações agora tem 8 linhas de saque com o padrão CBV
   const renderRotacoes = () => (
     <table className="rotation-table">
       <tbody>
         <tr style={{ backgroundColor: '#e5e5e5' }}>
-          <td style={{ width: '22%', fontWeight: 'bold' }}>ORDEM</td>
-          <td style={{ width: '13%', fontWeight: 'bold' }}>I</td><td style={{ width: '13%', fontWeight: 'bold' }}>II</td>
-          <td style={{ width: '13%', fontWeight: 'bold' }}>III</td><td style={{ width: '13%', fontWeight: 'bold' }}>IV</td>
-          <td style={{ width: '13%', fontWeight: 'bold' }}>V</td><td style={{ width: '13%', fontWeight: 'bold' }}>VI</td>
+          <td style={{ width: '16%', fontWeight: 'bold' }}>ORDEM</td>
+          <td style={{ width: '14%', fontWeight: 'bold' }}>I</td><td style={{ width: '14%', fontWeight: 'bold' }}>II</td>
+          <td style={{ width: '14%', fontWeight: 'bold' }}>III</td><td style={{ width: '14%', fontWeight: 'bold' }}>IV</td>
+          <td style={{ width: '14%', fontWeight: 'bold' }}>V</td><td style={{ width: '14%', fontWeight: 'bold' }}>VI</td>
         </tr>
         <tr><td>INICIAL</td>{Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}</tr>
         <tr><td>SUBSTITUTO</td>{Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}</tr>
         <tr><td>PLACAR (IN)</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
         <tr><td>PLACAR (OUT)</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
-        <tr><td>SAQUE 1</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#999' }}>[ ]</td>)}</tr>
-        <tr><td>SAQUE 2</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#999' }}>[ ]</td>)}</tr>
+        
+        {/* As 8 Quadrículas de Saque (Pontuação na perda do serviço) */}
+        {Array.from({ length: 8 }).map((_, rowIndex) => (
+          <tr key={`saque-${rowIndex}`}>
+            {rowIndex === 0 && <td rowSpan={8} style={{ verticalAlign: 'middle', fontWeight: 'bold', fontSize: '9px', backgroundColor: '#f9f9f9' }}>SAQUES</td>}
+            {Array.from({ length: 6 }).map((_, colIndex) => (
+              <td key={colIndex} style={{ padding: 0, verticalAlign: 'top', height: '11px' }}>
+                <div style={{ textAlign: 'left', fontSize: '6px', color: '#666', paddingLeft: '2px', paddingTop: '1px', lineHeight: '1' }}>
+                  {rowIndex + 1}
+                </div>
+              </td>
+            ))}
+          </tr>
+        ))}
       </tbody>
     </table>
   );
@@ -140,7 +150,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <span>SORTEIO: [ &nbsp;] SAQUE &nbsp; [ &nbsp;] RECEPÇÃO</span>
         <span>INÍCIO: ___:___ | FIM: ___:___</span>
       </div>
-      <table className="table-bordered" style={{ borderTop: 'none' }}>
+      <table className="table-bordered" style={{ borderTop: 'none', height: '100%' }}>
         <tbody>
           <tr>
             <td style={{ width: '13%', borderTop: 'none' }}>
@@ -199,7 +209,6 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         </button>
       </div>
 
-      {/* Container com a formatação original perfeita (1150px) */}
       <div ref={sumulaRef} className="cbv-container">
         
         <div className="header-box">
@@ -311,11 +320,11 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         .table-sm td, .table-sm th { padding: 2px !important; height: 18px; }
         
         .section-title { font-weight: bold; background-color: #e5e5e5; text-transform: uppercase; border-bottom: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
-        .set-wrapper { border: 2px solid #000; }
+        .set-wrapper { border: 2px solid #000; display: flex; flex-direction: column; flex: 1; min-height: 0; }
         .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 4px 8px; font-size: 11px; }
         
-        .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 8px; }
-        .rotation-table td { border: 1px solid #000; padding: 1px; height: 14px; }
+        .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 8px; table-layout: fixed; height: 100%; }
+        .rotation-table td { border: 1px solid #000; padding: 1px; height: 11px; }
         
         .points-container { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; justify-content: flex-start; }
         .point-box { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 8px; color: #333; font-weight: bold; }
