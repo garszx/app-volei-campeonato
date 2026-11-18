@@ -204,7 +204,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <button 
           onClick={baixarPDF} 
           disabled={gerandoPDF}
-          style={{ padding: '12px 24px', backgroundColor: gerandoPDF ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+          style={{ padding: '12px 24px', backgroundColor: gerandoPDF ? '#94a3b8' : 'var(--cor-destaque, #2563eb)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
           {gerandoPDF ? '⏳ A gerar documento...' : '📥 Descarregar Súmula Oficial (PDF)'}
         </button>
       </div>

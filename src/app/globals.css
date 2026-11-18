@@ -6,7 +6,7 @@
   --input-bg: #0f172a;
   --input-text: #f8fafc;
   --input-border: #475569;
-  --btn-bg: #2563eb; /* Azul royal vibrante */
+  --btn-bg: var(--cor-destaque, #2563eb); /* Azul royal vibrante */
   --btn-text: #ffffff;
   --accent-live: #ef4444; /* Vermelho forte para AO VIVO */
   --accent-success: #10b981; /* Verde esmeralda para finalizados */

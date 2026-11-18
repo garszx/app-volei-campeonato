@@ -25,7 +25,7 @@ export default function HubTorneio() {
 
   // Usa as regras recém-salvas na hora, ou as que vieram do banco
   const regrasAtivas = regrasAtualizadas || torneio.regras;
-  const corDestaque = regrasAtivas?.corPrimaria || '#3b82f6';
+  const corDestaque = regrasAtivas?.corPrimaria || 'var(--cor-destaque, #3b82f6)';
 
   const trocarAba = (novaAba: 'jogos' | 'classificacao' | 'live' | 'admin') => {
     setAbaAtiva(novaAba);
@@ -36,7 +36,10 @@ export default function HubTorneio() {
   return (
     <div
       className={styles.container}
-      style={{ '--cor-destaque': corDestaque } as React.CSSProperties}
+      style={{
+        '--cor-destaque': corDestaque,
+        '--btn-bg': corDestaque,
+      } as React.CSSProperties}
     >
       <div className={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
@@ -64,8 +67,8 @@ export default function HubTorneio() {
         )}
       </div>
 
-      {/* Painel de Aparência aparece no topo da aba Mesa */}
-      {abaAtiva === 'admin' && regrasAtivas && (
+      {/* Painel de Aparência aparece apenas para quem entrou com a senha mestre */}
+      {abaAtiva === 'admin' && torneio.nivelAcesso === 'mestre' && regrasAtivas && (
         <ConfiguracaoTema
           torneioId={torneioId}
           regrasAtuais={regrasAtivas}

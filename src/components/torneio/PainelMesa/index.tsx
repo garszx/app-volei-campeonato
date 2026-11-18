@@ -67,7 +67,7 @@ export default function PainelMesa(props: PainelMesaProps) {
         <form onSubmit={props.handleLogin} className={styles.adminList} style={{maxWidth: '400px', borderColor: '#334155'}}>
           <h2 style={{color: '#f8fafc', textAlign: 'center', marginBottom: '1.5rem'}}>🔒 Acesso Restrito</h2>
           <input type="password" placeholder="Senha da Mesa ou Mestre" style={{width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0f172a', color: 'white', marginBottom: '1rem', outline: 'none'}} value={props.senha} onChange={(e) => props.setSenha(e.target.value)} />
-          <button type="submit" className={styles.btnEncerrar} style={{backgroundColor: '#3b82f6'}}>Acessar</button>
+          <button type="submit" className={styles.btnEncerrar} style={{backgroundColor: 'var(--cor-destaque, #3b82f6)'}}>Acessar</button>
         </form>
       </div>
     );
@@ -76,14 +76,14 @@ export default function PainelMesa(props: PainelMesaProps) {
   return (
     <div className={styles.container}>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: '0', fontSize: '22px', color: nivelAcesso === 'mestre' ? '#ef4444' : '#38bdf8' }}>Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}</h2>
+        <h2 style={{ margin: '0', fontSize: '22px', color: nivelAcesso === 'mestre' ? '#ef4444' : 'var(--cor-destaque, #38bdf8)' }}>Painel da Mesa {nivelAcesso === 'mestre' ? '👑 (Modo Mestre)' : '📋 (Modo Mesário)'}</h2>
         <button onClick={props.fazerLogout} style={{ padding: '6px 16px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Sair</button>
       </div>
 
       {nivelAcesso === 'mestre' && statusTorneio !== 'aguardando_sorteio' && (
-        <div className={styles.adminList} style={{ marginBottom: '20px', borderColor: '#3b82f6' }}>
+        <div className={styles.adminList} style={{ marginBottom: '20px', borderColor: 'var(--cor-destaque, #3b82f6)' }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button onClick={() => props.setMostrarEditorEquipes(!props.mostrarEditorEquipes)} style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>
+            <button onClick={() => props.setMostrarEditorEquipes(!props.mostrarEditorEquipes)} style={{ width: '100%', padding: '12px', backgroundColor: 'var(--cor-destaque, #3b82f6)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>
               {props.mostrarEditorEquipes ? '❌ Fechar Editor Global' : '🛠️ Abrir Editor Global (Nomes, Logos e Chaves)'}
             </button>
           </div>
@@ -177,13 +177,13 @@ export default function PainelMesa(props: PainelMesaProps) {
           <div style={{fontSize: '2rem', fontWeight: '800', color: '#f8fafc', margin: '2rem 0'}}>
             {proximoJogo.timeA.nome} <span style={{color: '#475569', margin: '0 1rem'}}>X</span> {proximoJogo.timeB.nome}
           </div>
-          <button className={styles.btnEncerrar} style={{backgroundColor: '#3b82f6'}} onClick={() => props.iniciarPartida(proximoJogo.id)}>Iniciar Jogo</button>
+          <button className={styles.btnEncerrar} style={{backgroundColor: 'var(--cor-destaque, #3b82f6)'}} onClick={() => props.iniciarPartida(proximoJogo.id)}>Iniciar Jogo</button>
         </div>
       ) : statusTorneio === 'fase_grupos' ? (
         <div className={styles.placarBase} style={{textAlign: 'center'}}>
           <h2 className={styles.titulo} style={{ marginBottom: '1.5rem' }}>Fase de Grupos Encerrada!</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {props.timesBase.length >= 4 && ( <button className={styles.btnEncerrar} style={{backgroundColor: '#3b82f6'}} onClick={props.gerarSemifinais}>🏆 Avançar para Semifinais</button> )}
+            {props.timesBase.length >= 4 && ( <button className={styles.btnEncerrar} style={{backgroundColor: 'var(--cor-destaque, #3b82f6)'}} onClick={props.gerarSemifinais}>🏆 Avançar para Semifinais</button> )}
             {props.timesBase.length >= 3 && ( <button className={styles.btnEncerrar} style={{ backgroundColor: '#10b981' }} onClick={props.gerarFinalDireta}>🥇 Gerar Grande Final Direta (1º x 2º)</button> )}
             <button className={styles.btnEncerrar} style={{ backgroundColor: '#f59e0b' }} onClick={props.encerrarCampeonatoPontosCorridos}>🛑 Encerrar e Coroar Campeão</button>
           </div>
@@ -204,7 +204,7 @@ export default function PainelMesa(props: PainelMesaProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   {nivelAcesso === 'mestre' && (
                       <div style={{display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap'}}>
-                          <input type="time" value={props.editHorario} onChange={e => props.setEditHorario(e.target.value)} style={{padding: '8px', borderRadius: '8px', backgroundColor: '#1e293b', color: '#38bdf8', border: '1px solid #38bdf8', outline: 'none', fontWeight: 'bold'}} />
+                          <input type="time" value={props.editHorario} onChange={e => props.setEditHorario(e.target.value)} style={{padding: '8px', borderRadius: '8px', backgroundColor: '#1e293b', color: 'var(--cor-destaque, #38bdf8)', border: '1px solid var(--cor-destaque, #38bdf8)', outline: 'none', fontWeight: 'bold'}} />
                           <select value={props.editMestreStatus} onChange={e => props.setEditMestreStatus(e.target.value)} style={{padding: '8px', borderRadius: '8px', backgroundColor: '#1e293b', color: 'white', border: '1px solid #334155', outline: 'none'}}>
                               <option value="pendente">Pendente</option><option value="em_andamento">Em Andamento</option><option value="finalizado">Finalizado</option>
                           </select>
@@ -251,7 +251,7 @@ export default function PainelMesa(props: PainelMesaProps) {
                     <span style={{fontWeight: '700', color: '#f8fafc', fontSize: '0.9rem'}}>{p.timeA.nome} {p.pontosA} x {p.pontosB} {p.timeB.nome}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => window.open(`/torneio/${window.location.pathname.split('/')[2]}/sumula/${p.id}`, '_blank')} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flexShrink: 0 }}>
+                    <button onClick={() => window.open(`/torneio/${window.location.pathname.split('/')[2]}/sumula/${p.id}`, '_blank')} style={{ padding: '6px 12px', background: 'var(--cor-destaque, #3b82f6)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flexShrink: 0 }}>
                       📄 Súmula
                     </button>
                     <button onClick={() => props.abrirEdicao(p)} style={{ padding: '6px 12px', background: nivelAcesso === 'mestre' ? '#ef4444' : '#334155', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flexShrink: 0 }}>
@@ -274,7 +274,7 @@ export default function PainelMesa(props: PainelMesaProps) {
           </div>
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
             <button onClick={props.baixarQRCode} className={styles.btnEncerrar} style={{ backgroundColor: '#475569', padding: '0.75rem', fontSize: '0.875rem' }}>📥 Baixar QR Code</button>
-            <button onClick={props.compartilharLink} className={styles.btnEncerrar} style={{ backgroundColor: '#3b82f6', padding: '0.75rem', fontSize: '0.875rem' }}>🔗 Copiar Link</button>
+            <button onClick={props.compartilharLink} className={styles.btnEncerrar} style={{ backgroundColor: 'var(--cor-destaque, #3b82f6)', padding: '0.75rem', fontSize: '0.875rem' }}>🔗 Copiar Link</button>
           </div>
         </div>
         

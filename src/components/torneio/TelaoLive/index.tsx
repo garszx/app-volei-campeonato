@@ -66,7 +66,7 @@ export default function TelaoLive({ abaAtiva, jogoAtual, proximoJogo, regras, is
         ) : proximoJogo ? (
           <>
             <div className={styles.headerLive}>
-              <span className={styles.horarioBadge} style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}>Próxima Partida</span> 
+              <span className={styles.horarioBadge} style={{ backgroundColor: 'var(--cor-destaque, #3b82f6)', color: '#ffffff' }}>Próxima Partida</span> 
               <span className={styles.horarioBadge}>{proximoJogo.horario}</span>
             </div>
             

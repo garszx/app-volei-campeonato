@@ -126,7 +126,7 @@ export default function Setup() {
         <div className={styles.configPanel} style={{ textAlign: 'center', maxWidth: '600px', width: '100%', padding: '40px' }}>
           <h1 className={styles.title} style={{ fontSize: '32px', marginBottom: '10px' }}>Torneio Criado! 🎉</h1>
           <p style={{ color: '#94a3b8', fontSize: '18px', marginBottom: '20px' }}>Sua central exclusiva foi gerada. Guarde este link para compartilhar com os times e acessar a mesa.</p>
-          <input type="text" readOnly value={linkGerado} className={styles.input} style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 'bold', fontSize: '16px', marginBottom: '20px' }} />
+          <input type="text" readOnly value={linkGerado} className={styles.input} style={{ textAlign: 'center', color: 'var(--cor-destaque, #38bdf8)', fontWeight: 'bold', fontSize: '16px', marginBottom: '20px' }} />
           
           <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', padding: '15px', borderRadius: '8px', marginBottom: '30px' }}>
             <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>Senha de acesso à Mesa Oficial:</p>

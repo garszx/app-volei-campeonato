@@ -11,7 +11,7 @@ interface Props {
   aoAtualizar: (novasRegras: Regras) => void;
 }
 
-const COR_PADRAO = '#3b82f6'; // Azul padrão atual
+const COR_PADRAO = 'var(--cor-destaque, #3b82f6)'; // Azul padrão atual
 
 export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar }: Props) {
   const [cor, setCor] = useState(regrasAtuais.corPrimaria || COR_PADRAO);
