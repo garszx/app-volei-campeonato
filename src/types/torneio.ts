@@ -5,6 +5,8 @@ export interface Regras {
   mostrarLogos?: boolean;
   senhaAdmin?: string;
   nomeCampeonato?: string;
+  logoUrl?: string;
+  corPrimaria?: string;
 }
 
 export interface Time {
