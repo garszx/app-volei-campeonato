@@ -1,7 +1,7 @@
 "use client";
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import styles from './tabela.module.css';
 
@@ -25,7 +25,17 @@ export default function HubTorneio() {
 
   // Usa as regras recém-salvas na hora, ou as que vieram do banco
   const regrasAtivas = regrasAtualizadas || torneio.regras;
-  const corDestaque = regrasAtivas?.corPrimaria || 'var(--cor-destaque, #3b82f6)';
+  const corDestaque = regrasAtivas?.corPrimaria || '#3b82f6';
+  const isTemaPadrao = !regrasAtivas?.corPrimaria || regrasAtivas.corPrimaria === '#3b82f6';
+
+  // Troca o fundo real da página (body) para preto carbono quando houver tema personalizado
+  useEffect(() => {
+    const fundoAnterior = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = isTemaPadrao ? '#0f172a' : '#09090b';
+    return () => {
+      document.body.style.backgroundColor = fundoAnterior;
+    };
+  }, [isTemaPadrao]);
 
   const trocarAba = (novaAba: 'jogos' | 'classificacao' | 'live' | 'admin') => {
     setAbaAtiva(novaAba);
@@ -39,6 +49,9 @@ export default function HubTorneio() {
       style={{
         '--cor-destaque': corDestaque,
         '--btn-bg': corDestaque,
+        '--background': isTemaPadrao ? '#0f172a' : '#09090b',
+        '--card-bg': isTemaPadrao ? '#1e293b' : '#18181b',
+        '--card-border': isTemaPadrao ? '#334155' : 'rgba(255, 255, 255, 0.14)',
       } as React.CSSProperties}
     >
       <div className={styles.header}>
