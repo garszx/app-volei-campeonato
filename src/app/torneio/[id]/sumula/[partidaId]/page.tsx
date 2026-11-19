@@ -30,7 +30,6 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       const { data: torneioData } = await supabase.from('torneios').select('regras').eq('id', id).single();
       if (torneioData) setRegras(torneioData.regras);
 
-      // Se for uma súmula em branco das finais
       if (faseEmBranco) {
         const timeVazio = { id: '', nome: '________________', jogadores: [] } as unknown as TimeDb;
         setJogo({
@@ -85,23 +84,11 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'landscape', format: 'a4' });
       
-      const margin = 5;
+      const margin = 4;
       const pdfWidth = pdf.internal.pageSize.getWidth() - margin * 2; 
       const pdfHeight = pdf.internal.pageSize.getHeight() - margin * 2; 
       
-      const canvasRatio = canvas.width / canvas.height;
-      let renderWidth = pdfWidth;
-      let renderHeight = pdfWidth / canvasRatio;
-
-      if (renderHeight > pdfHeight) {
-        renderHeight = pdfHeight;
-        renderWidth = pdfHeight * canvasRatio;
-      }
-      
-      const x = margin + (pdfWidth - renderWidth) / 2;
-      const y = margin + (pdfHeight - renderHeight) / 2;
-      
-      pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
+      pdf.addImage(imgData, 'PNG', margin, margin, pdfWidth, pdfHeight);
       const nomeArquivo = faseEmBranco
         ? `Sumula_${faseEmBranco.label}.pdf`
         : `Sumula_${jogo?.timeA?.nome}_x_${jogo?.timeB?.nome}.pdf`;
@@ -136,12 +123,12 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
   const totalPtsA = linhasResultado.reduce((acc, curr) => acc + (typeof curr.pA === 'number' ? curr.pA : 0), 0);
   const totalPtsB = linhasResultado.reduce((acc, curr) => acc + (typeof curr.pB === 'number' ? curr.pB : 0), 0);
 
-  const renderPontosGrid = () => {
+  const renderPontosGrid = (maxPontos = 40, compacto = false) => {
     const pts = [];
-    for (let i = 1; i <= 40; i++) {
-      pts.push(<span key={i} className="point-box">{i}</span>);
+    for (let i = 1; i <= maxPontos; i++) {
+      pts.push(<span key={i} className={compacto ? 'point-box-sm' : 'point-box'}>{i}</span>);
     }
-    return <div className="points-container">{pts}</div>;
+    return <div className={compacto ? 'points-container-sm' : 'points-container'}>{pts}</div>;
   };
 
   const renderRotacoes = () => (
@@ -174,37 +161,142 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     </table>
   );
 
-  const renderSetGrid = (numSet: number) => (
-    <div className="set-wrapper" key={numSet}>
-      <div className="set-header">
-        <span>SET {numSet}</span>
-        <span>SORTEIO: [ &nbsp;] SAQUE &nbsp; [ &nbsp;] RECEPÇÃO</span>
-        <span>INÍCIO: ___:___ | FIM: ___:___</span>
+  // Bloco individual (I a VI + Pontos + Tempos) usado nos 3 painéis do Tie-Break
+  const renderBlocoTieBreak = (tituloTopo: string, isPosTroca = false) => (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: isPosTroca ? 'none' : '1px solid #000' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 4px', borderBottom: '1px solid #000', backgroundColor: '#f9f9f9', fontSize: '8px', fontWeight: 'bold' }}>
+        <span>{tituloTopo}</span>
+        {isPosTroca ? <span>PTS TROCA: ____</span> : <span>[ ]S [ ]R</span>}
       </div>
-      <table className="table-bordered" style={{ borderTop: 'none', height: '100%' }}>
-        <tbody>
-          <tr>
-            <td style={{ width: '13%', borderTop: 'none' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', wordBreak: 'break-word' }}>{jogo.timeA.nome}</div>
-              <div style={{ fontSize: '10px', marginTop: '10px' }}>Tempos:</div>
-              <div style={{ fontSize: '10px' }}>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
-            </td>
-            <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0', borderTop: 'none' }}>{renderRotacoes()}</td>
-            <td style={{ width: '40%', padding: '3px', borderTop: 'none' }}>{renderPontosGrid()}</td>
-          </tr>
-          <tr>
-            <td style={{ width: '13%' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', wordBreak: 'break-word' }}>{jogo.timeB.nome}</div>
-              <div style={{ fontSize: '10px', marginTop: '10px' }}>Tempos:</div>
-              <div style={{ fontSize: '10px' }}>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
-            </td>
-            <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0' }}>{renderRotacoes()}</td>
-            <td style={{ width: '40%', padding: '3px' }}>{renderPontosGrid()}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div style={{ display: 'flex', flex: 1 }}>
+        <table className="rotation-table" style={{ flex: 1.7 }}>
+          <tbody>
+            <tr style={{ backgroundColor: '#e5e5e5' }}>
+              <td style={{ fontWeight: 'bold' }}>I</td><td style={{ fontWeight: 'bold' }}>II</td>
+              <td style={{ fontWeight: 'bold' }}>III</td><td style={{ fontWeight: 'bold' }}>IV</td>
+              <td style={{ fontWeight: 'bold' }}>V</td><td style={{ fontWeight: 'bold' }}>VI</td>
+            </tr>
+            <tr>{Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}</tr>
+            <tr>{Array.from({ length: 6 }).map((_, i) => <td key={i}></td>)}</tr>
+            <tr>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
+            <tr>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
+            {Array.from({ length: 6 }).map((_, rowIndex) => (
+              <tr key={`tb-saque-${rowIndex}`}>
+                {Array.from({ length: 6 }).map((_, colIndex) => (
+                  <td key={colIndex} style={{ padding: 0, verticalAlign: 'top', height: '14px' }}>
+                    <div style={{ textAlign: 'left', fontSize: '6px', color: '#666', paddingLeft: '1px', lineHeight: '1' }}>
+                      {rowIndex + 1}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '1px solid #000', padding: '2px' }}>
+          <div style={{ fontSize: '7px', fontWeight: 'bold', textAlign: 'center', borderBottom: '1px solid #ccc', paddingBottom: '1px' }}>PONTOS</div>
+          {renderPontosGrid(24, true)}
+          <div style={{ borderTop: '1px solid #000', paddingTop: '2px', textAlign: 'center', fontSize: '8px', fontWeight: 'bold' }}>
+            T: [ &nbsp; ] [ &nbsp; ]
+          </div>
+        </div>
+      </div>
     </div>
   );
+
+  // Quadro oficial do Tie-Break (Set 3 em MD3 ou Set 5 em MD5)
+  const renderTieBreakGrid = (numSet: number) => (
+    <div className="set-wrapper" key={numSet}>
+      <div className="set-header">
+        <span>SET {numSet} — TIE-BREAK (DECISIVO)</span>
+        <span>INÍCIO: ___:___ | FIM: ___:___</span>
+      </div>
+      <div style={{ display: 'flex', flex: 1 }}>
+        {/* Coluna única de rótulos à esquerda */}
+        <div style={{ width: '56px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #000', backgroundColor: '#f9f9f9' }}>
+          <div style={{ padding: '3px 2px', borderBottom: '1px solid #000', fontSize: '7px', fontWeight: 'bold', textAlign: 'center' }}>EQUIPE</div>
+          <table className="rotation-table" style={{ flex: 1 }}>
+            <tbody>
+              <tr style={{ backgroundColor: '#e5e5e5' }}><td style={{ fontWeight: 'bold' }}>ORDEM</td></tr>
+              <tr><td>INICIAL</td></tr>
+              <tr><td>SUB</td></tr>
+              <tr><td>IN</td></tr>
+              <tr><td>OUT</td></tr>
+              <tr><td rowSpan={6} style={{ verticalAlign: 'middle', fontWeight: 'bold', fontSize: '8px', height: '84px' }}>SAQUES</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Painel 1: Lado Esquerdo (antes da troca) */}
+        {renderBlocoTieBreak('EQ: ________')}
+
+        {/* Painel 2: Lado Direito */}
+        {renderBlocoTieBreak('EQ: ________')}
+
+        {/* Divisor Vertical: TROCA DE LADO */}
+        <div style={{
+          width: '20px',
+          backgroundColor: '#000',
+          color: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          fontSize: '8px',
+          fontWeight: 'bold',
+          lineHeight: '1.15',
+          letterSpacing: '0.5px',
+          padding: '2px 0'
+        }}>
+          {'TROCA DE LADO'.split('').map((char, idx) => (
+            <span key={idx}>{char === ' ' ? '\u00A0' : char}</span>
+          ))}
+        </div>
+
+        {/* Painel 3: Lado Esquerdo repetido (após a troca) */}
+        {renderBlocoTieBreak('EQ: ________', true)}
+      </div>
+    </div>
+  );
+
+  const renderSetGrid = (numSet: number) => {
+    // Se for o set decisivo (3º no MD3 ou 5º no MD5), usa o layout oficial de Tie-Break
+    if (numSet === numeroSets) {
+      return renderTieBreakGrid(numSet);
+    }
+
+    return (
+      <div className="set-wrapper" key={numSet}>
+        <div className="set-header">
+          <span>SET {numSet}</span>
+          <span>SORTEIO: [ &nbsp;] SAQUE &nbsp; [ &nbsp;] RECEPÇÃO</span>
+          <span>INÍCIO: ___:___ | FIM: ___:___</span>
+        </div>
+        <table className="table-bordered" style={{ borderTop: 'none', height: '100%' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '13%', borderTop: 'none' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', wordBreak: 'break-word' }}>{jogo.timeA.nome}</div>
+                <div style={{ fontSize: '10px', marginTop: '10px' }}>Tempos:</div>
+                <div style={{ fontSize: '10px' }}>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
+              </td>
+              <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0', borderTop: 'none' }}>{renderRotacoes()}</td>
+              <td style={{ width: '40%', padding: '3px', borderTop: 'none' }}>{renderPontosGrid()}</td>
+            </tr>
+            <tr>
+              <td style={{ width: '13%' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', wordBreak: 'break-word' }}>{jogo.timeB.nome}</div>
+                <div style={{ fontSize: '10px', marginTop: '10px' }}>Tempos:</div>
+                <div style={{ fontSize: '10px' }}>[ &nbsp;&nbsp; ] [ &nbsp;&nbsp; ]</div>
+              </td>
+              <td style={{ width: '47%', backgroundColor: '#f9f9f9', padding: '0' }}>{renderRotacoes()}</td>
+              <td style={{ width: '40%', padding: '3px' }}>{renderPontosGrid()}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   const renderEscalacao = (time: TimeDb, isEquipeA: boolean) => {
     const lista = (time.jogadores || []) as Jogador[];
@@ -363,11 +455,11 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `
-        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1580px; min-height: 1117px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 10px; display: flex; flex-direction: column; }
+        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1760px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 10px; display: flex; flex-direction: column; }
         .header-box { display: flex; border: 2px solid #000; margin-bottom: 8px; }
         .main-grid { display: flex; gap: 10px; flex: 1; }
-        .left-col { flex: 1.15; display: flex; flex-direction: column; gap: 8px; }
-        .right-col { flex: 1; display: flex; flex-direction: column; }
+        .left-col { flex: 1.05; display: flex; flex-direction: column; gap: 8px; }
+        .right-col { flex: 1.1; display: flex; flex-direction: column; }
         
         .table-bordered { border-collapse: collapse; width: 100%; text-align: center; }
         .table-bordered th, .table-bordered td { border: 1px solid #000; padding: 3px; }
@@ -382,6 +474,10 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         
         .points-container { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; justify-content: flex-start; }
         .point-box { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 8px; color: #333; font-weight: bold; }
+        
+        .points-container-sm { display: flex; flex-wrap: wrap; gap: 1px; padding: 2px 0; justify-content: center; }
+        .point-box-sm { width: 14px; height: 13px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 7px; color: #333; font-weight: bold; }
+        
         .roster-wrapper { border: 1px solid #000; }
       `}} />
     </div>
