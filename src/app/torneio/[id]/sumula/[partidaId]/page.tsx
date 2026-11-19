@@ -4,7 +4,14 @@ import { useEffect, useState, use, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { supabase } from '../../../../../supabase';
-import { Partida, Regras, TimeDb } from '../../../../../types/torneio';
+import { Jogador, Partida, Regras, TimeDb } from '../../../../../types/torneio';
+
+const FASES_EM_BRANCO: Record<string, { fase: string; label: string }> = {
+  'semifinal-1': { fase: 'SEMIFINAL 1', label: 'Semifinal_1' },
+  'semifinal-2': { fase: 'SEMIFINAL 2', label: 'Semifinal_2' },
+  'terceiro-lugar': { fase: 'DISPUTA DE 3º LUGAR', label: 'Disputa_3_Lugar' },
+  'final': { fase: 'FINAL', label: 'Final' },
+};
 
 export default function SumulaOficial({ params }: { params: Promise<{ id: string, partidaId: string }> }) {
   const { id, partidaId } = use(params);
@@ -16,14 +23,36 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
   
   const sumulaRef = useRef<HTMLDivElement>(null);
 
+  const faseEmBranco = FASES_EM_BRANCO[partidaId];
+
   useEffect(() => {
     async function carregarSumula() {
       const { data: torneioData } = await supabase.from('torneios').select('regras').eq('id', id).single();
+      if (torneioData) setRegras(torneioData.regras);
+
+      // Se for uma súmula em branco das finais
+      if (faseEmBranco) {
+        const timeVazio = { id: '', nome: '________________', jogadores: [] } as unknown as TimeDb;
+        setJogo({
+          id: partidaId,
+          fase: faseEmBranco.fase,
+          horario: '___:___',
+          status: 'pendente',
+          pontosA: 0,
+          pontosB: 0,
+          setsVencidosA: 0,
+          setsVencidosB: 0,
+          parciais: '',
+          timeA: timeVazio,
+          timeB: timeVazio,
+        } as unknown as Partida);
+        setCarregando(false);
+        return;
+      }
+
       const { data: partidaData } = await supabase.from('partidas').select('*').eq('id', partidaId).single();
       
       if (torneioData && partidaData) {
-        setRegras(torneioData.regras);
-        
         const { data: timeA } = await supabase.from('times').select('*').eq('id', partidaData.time_a_id).single();
         const { data: timeB } = await supabase.from('times').select('*').eq('id', partidaData.time_b_id).single();
         
@@ -40,7 +69,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       setCarregando(false);
     }
     carregarSumula();
-  }, [id, partidaId]);
+  }, [id, partidaId, faseEmBranco]);
 
   const baixarPDF = async () => {
     if (!sumulaRef.current) return;
@@ -73,7 +102,10 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       const y = margin + (pdfHeight - renderHeight) / 2;
       
       pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
-      pdf.save(`Sumula_${jogo?.timeA?.nome}_x_${jogo?.timeB?.nome}.pdf`);
+      const nomeArquivo = faseEmBranco
+        ? `Sumula_${faseEmBranco.label}.pdf`
+        : `Sumula_${jogo?.timeA?.nome}_x_${jogo?.timeB?.nome}.pdf`;
+      pdf.save(nomeArquivo);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       alert("Ocorreu um erro ao gerar o PDF.");
@@ -87,7 +119,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
 
   const arrayParciais = jogo.parciais ? jogo.parciais.split(',') : [];
   const isFinalizado = jogo.status === 'finalizado';
-  const isMd3 = (jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3');
+  const isMd3 = (jogo.fase === 'grupos' ? regras?.formatoGrupos : regras?.formatoFinais)?.includes('melhor_de_3') ?? true;
   const numeroSets = isMd3 ? 3 : 5;
 
   const linhasResultado = Array.from({ length: numeroSets }).map((_, i) => {
@@ -174,27 +206,45 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     </div>
   );
 
-  const renderEscalacao = (time: TimeDb, isEquipeA: boolean) => (
-    <div className="roster-wrapper">
-      <div className="section-title">EQUIPE {isEquipeA ? 'A' : 'B'}: {time.nome}</div>
-      <table className="table-bordered table-sm">
-        <thead>
-          <tr><th style={{ width: '15%' }}>Nº</th><th>NOME DO JOGADOR</th></tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 12 }).map((_, i) => <tr key={i}><td>&nbsp;</td><td>&nbsp;</td></tr>)}
-        </tbody>
-      </table>
-      <div style={{ fontSize: '10px', padding: '4px', borderTop: '1px solid #000' }}>LÍBEROS:</div>
-      <div style={{ display: 'flex', borderTop: '1px solid #000' }}>
-        <div style={{ flex: 1, padding: '4px', borderRight: '1px solid #000' }}>Nº ___</div>
-        <div style={{ flex: 1, padding: '4px' }}>Nº ___</div>
+  const renderEscalacao = (time: TimeDb, isEquipeA: boolean) => {
+    const lista = (time.jogadores || []) as Jogador[];
+    const linhaJogadores = lista.filter((j) => !j.isLibero);
+    const liberos = lista.filter((j) => j.isLibero);
+
+    return (
+      <div className="roster-wrapper">
+        <div className="section-title">EQUIPE {isEquipeA ? 'A' : 'B'}: {time.nome}</div>
+        <table className="table-bordered table-sm">
+          <thead>
+            <tr><th style={{ width: '15%' }}>Nº</th><th>NOME DO JOGADOR</th></tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 12 }).map((_, i) => {
+              const atleta = linhaJogadores[i];
+              return (
+                <tr key={i}>
+                  <td style={{ fontWeight: 'bold' }}>{atleta?.numero || '\u00A0'}</td>
+                  <td style={{ textAlign: 'left', paddingLeft: '6px' }}>{atleta?.nome || '\u00A0'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div style={{ fontSize: '10px', padding: '4px', borderTop: '1px solid #000' }}>LÍBEROS:</div>
+        <div style={{ display: 'flex', borderTop: '1px solid #000', fontSize: '10px' }}>
+          <div style={{ flex: 1, padding: '4px', borderRight: '1px solid #000' }}>
+            Nº {liberos[0] ? `${liberos[0].numero} - ${liberos[0].nome}` : '___'}
+          </div>
+          <div style={{ flex: 1, padding: '4px' }}>
+            Nº {liberos[1] ? `${liberos[1].numero} - ${liberos[1].nome}` : '___'}
+          </div>
+        </div>
+        <div style={{ padding: '6px', borderTop: '1px solid #000', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>
+          Assinatura Capitão: ____________________
+        </div>
       </div>
-      <div style={{ padding: '6px', borderTop: '1px solid #000', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>
-        Assinatura Capitão: ____________________
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div style={{ backgroundColor: '#e2e8f0', minHeight: '100vh', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -214,4 +264,126 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
           <div style={{ flex: 1, padding: '10px', borderRight: '2px solid #000' }}>
             <h1 style={{ margin: '0 0 6px 0', fontSize: '18px', textTransform: 'uppercase' }}>{regras?.nomeCampeonato || 'Campeonato de Voleibol'}</h1>
             <div style={{ fontSize: '12px', display: 'flex', gap: '20px' }}>
-              <span><b>
+              <span><b>FASE:</b> {jogo.fase.toUpperCase()}</span><span><b>JOGO Nº:</b> {jogo.ordem || jogo.numero || '____'}</span><span><b>NAIPE:</b> [ ] M [ ] F</span>
+            </div>
+            <div style={{ fontSize: '12px', display: 'flex', gap: '20px', marginTop: '6px' }}>
+              <span><b>DATA:</b> ___/___/20__</span><span><b>HORÁRIO OFICIAL:</b> {jogo.horario}</span><span><b>CIDADE:</b> ___________________</span>
+            </div>
+          </div>
+          <div style={{ width: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e5e5e5', fontWeight: '900', fontSize: '16px', textAlign: 'center' }}>
+            SÚMULA OFICIAL<br/>DE VOLEIBOL
+          </div>
+        </div>
+
+        <div className="main-grid">
+          
+          <div className="left-col">
+            {Array.from({ length: isMd3 ? 2 : 3 }).map((_, i) => renderSetGrid(i + 1))}
+            
+            <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+              <div className="roster-wrapper" style={{ flex: 1.2 }}>
+                <div className="section-title">SANÇÕES</div>
+                <table className="table-bordered table-sm" style={{ fontSize: '10px' }}>
+                  <thead><tr><th>A</th><th>P</th><th>E</th><th>D</th><th>A/B</th><th>SET</th><th>PLACAR</th></tr></thead>
+                  <tbody>{Array.from({ length: 4 }).map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
+                </table>
+              </div>
+              <div className="roster-wrapper" style={{ flex: 2 }}>
+                <div className="section-title">OBSERVAÇÕES</div>
+                <div style={{ height: '78px', padding: '4px', fontSize: '11px', borderBottom: '1px solid #ccc' }}></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="right-col">
+            <div style={{ display: 'flex', gap: '5px' }}>
+              <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeA as TimeDb, true)}</div>
+              <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeB as TimeDb, false)}</div>
+            </div>
+
+            <div className="roster-wrapper" style={{ marginTop: '6px' }}>
+              <div className="section-title">APROVAÇÃO (ARBITRAGEM)</div>
+              <table className="table-bordered table-sm" style={{ fontSize: '11px', textAlign: 'left' }}>
+                <tbody>
+                  <tr><td style={{ width: '60%' }}>1º Árbitro:</td><td>Assinatura:</td></tr>
+                  <tr><td>2º Árbitro:</td><td>Assinatura:</td></tr>
+                  <tr><td>Apontador:</td><td>Assinatura:</td></tr>
+                  <tr><td>Juiz de Linha 1: ______________</td><td>Juiz 3: ______________</td></tr>
+                  <tr><td>Juiz de Linha 2: ______________</td><td>Juiz 4: ______________</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="roster-wrapper" style={{ marginTop: '6px', border: '2px solid #000' }}>
+              <div className="section-title" style={{ backgroundColor: '#000', color: '#fff' }}>RESULTADOS</div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #000' }}>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px' }}>{jogo.timeA.nome}</div>
+                <div style={{ width: '35px', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px' }}>SET</div>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', padding: '4px' }}>{jogo.timeB.nome}</div>
+              </div>
+
+              <table className="table-bordered table-sm" style={{ fontSize: '11px', borderTop: 'none' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f0f0f0' }}>
+                    <th style={{ width: '12%' }}>T</th><th style={{ width: '12%' }}>S</th><th style={{ width: '12%' }}>V</th><th style={{ width: '14%' }}>P</th>
+                    <th style={{ width: '10%' }}>Nº</th>
+                    <th style={{ width: '14%' }}>P</th><th style={{ width: '12%' }}>V</th><th style={{ width: '12%' }}>S</th><th style={{ width: '12%' }}>T</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhasResultado.map((linha, i) => (
+                    <tr key={i}>
+                      <td></td><td></td><td style={{ fontWeight: 'bold' }}>{linha.vA}</td><td style={{ fontWeight: 'bold', fontSize: '12px' }}>{linha.pA}</td>
+                      <td style={{ backgroundColor: '#e5e5e5', fontWeight: 'bold' }}>{i + 1}</td>
+                      <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{linha.pB}</td><td style={{ fontWeight: 'bold' }}>{linha.vB}</td><td></td><td></td>
+                    </tr>
+                  ))}
+                  <tr style={{ backgroundColor: '#f9f9f9' }}>
+                    <td colSpan={2} style={{ fontWeight: 'bold', textAlign: 'right', paddingRight: '4px' }}>TOTAL</td>
+                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{isFinalizado ? jogo.setsVencidosA : ''}</td>
+                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{isFinalizado ? totalPtsA : ''}</td>
+                    <td style={{ backgroundColor: '#000', color: '#fff', fontWeight: 'bold' }}>T</td>
+                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{isFinalizado ? totalPtsB : ''}</td>
+                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{isFinalizado ? jogo.setsVencidosB : ''}</td>
+                    <td colSpan={2} style={{ fontWeight: 'bold', textAlign: 'left', paddingLeft: '4px' }}>TOTAL</td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <div style={{ padding: '6px', textAlign: 'center', fontSize: '12px', borderTop: '1px solid #000', backgroundColor: '#e5e5e5' }}>
+                <b>VENCEDOR: </b> {isFinalizado ? ((jogo.setsVencidosA || 0) > (jogo.setsVencidosB || 0) ? jogo.timeA.nome.toUpperCase() : jogo.timeB.nome.toUpperCase()) : '________________________________'}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+              {Array.from({ length: isMd3 ? 1 : 2 }).map((_, i) => renderSetGrid((isMd3 ? 3 : 4) + i))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1580px; min-height: 1117px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 10px; display: flex; flex-direction: column; }
+        .header-box { display: flex; border: 2px solid #000; margin-bottom: 8px; }
+        .main-grid { display: flex; gap: 10px; flex: 1; }
+        .left-col { flex: 1.15; display: flex; flex-direction: column; gap: 8px; }
+        .right-col { flex: 1; display: flex; flex-direction: column; }
+        
+        .table-bordered { border-collapse: collapse; width: 100%; text-align: center; }
+        .table-bordered th, .table-bordered td { border: 1px solid #000; padding: 3px; }
+        .table-sm td, .table-sm th { padding: 2px !important; height: 18px; }
+        
+        .section-title { font-weight: bold; background-color: #e5e5e5; text-transform: uppercase; border-bottom: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
+        .set-wrapper { border: 2px solid #000; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 4px 8px; font-size: 11px; }
+        
+        .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 8px; table-layout: fixed; height: 100%; }
+        .rotation-table td { border: 1px solid #000; padding: 1px; height: 14px; }
+        
+        .points-container { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; justify-content: flex-start; }
+        .point-box { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 8px; color: #333; font-weight: bold; }
+        .roster-wrapper { border: 1px solid #000; }
+      `}} />
+    </div>
+  );
+}
