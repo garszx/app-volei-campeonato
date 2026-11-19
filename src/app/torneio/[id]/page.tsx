@@ -13,6 +13,7 @@ import Classificacao from '../../../components/torneio/Classificacao';
 import TelaoLive from '../../../components/torneio/TelaoLive';
 import PainelMesa from '../../../components/torneio/PainelMesa';
 import ConfiguracaoTema from '../../../components/torneio/PainelMesa/ConfiguracaoTema';
+import CadastroElencos from '../../../components/torneio/PainelMesa/CadastroElencos';
 
 export default function HubTorneio() {
   const params = useParams();
@@ -101,12 +102,16 @@ export default function HubTorneio() {
           )}
         </div>
 
+        {/* Painéis exclusivos do acesso Mestre */}
         {abaAtiva === 'admin' && torneio.nivelAcesso === 'mestre' && regrasAtivas && (
-          <ConfiguracaoTema
-            torneioId={torneioId}
-            regrasAtuais={regrasAtivas}
-            aoAtualizar={(novasRegras) => setRegrasAtualizadas(novasRegras)}
-          />
+          <>
+            <ConfiguracaoTema
+              torneioId={torneioId}
+              regrasAtuais={regrasAtivas}
+              aoAtualizar={(novasRegras) => setRegrasAtualizadas(novasRegras)}
+            />
+            <CadastroElencos torneioId={torneioId} />
+          </>
         )}
 
         <TabelaJogos abaAtiva={abaAtiva} partidas={torneio.partidas} regras={regrasAtivas} />
