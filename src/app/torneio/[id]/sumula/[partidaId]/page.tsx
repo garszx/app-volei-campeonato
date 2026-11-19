@@ -48,7 +48,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     
     try {
       const canvas = await html2canvas(sumulaRef.current, {
-        scale: 4, // Alta resolução mantida
+        scale: 4,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -81,7 +81,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     }
   };
 
-  if (carregando) return <div style={{ padding: '2rem', textAlign: 'center', color: '#000' }}>A carregar súmula...</div>;
+  if (carregando) return <div style={{ padding: '2rem', textAlign: 'center', color: '#000' }}>Carregando súmula...</div>;
   if (!jogo) return <div style={{ padding: '2rem', textAlign: 'center', color: 'red' }}>Partida não encontrada.</div>;
 
   const arrayParciais = jogo.parciais ? jogo.parciais.split(',') : [];
@@ -111,7 +111,6 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     return <div className="points-container">{pts}</div>;
   };
 
-  // ATUALIZADO: Grelha de rotações agora tem 8 linhas de saque com o padrão CBV
   const renderRotacoes = () => (
     <table className="rotation-table">
       <tbody>
@@ -126,12 +125,11 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <tr><td>PLACAR (IN)</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
         <tr><td>PLACAR (OUT)</td>{Array.from({ length: 6 }).map((_, i) => <td key={i} style={{ color: '#666' }}>:</td>)}</tr>
         
-        {/* As 8 Quadrículas de Saque (Pontuação na perda do serviço) */}
         {Array.from({ length: 8 }).map((_, rowIndex) => (
           <tr key={`saque-${rowIndex}`}>
             {rowIndex === 0 && <td rowSpan={8} style={{ verticalAlign: 'middle', fontWeight: 'bold', fontSize: '9px', backgroundColor: '#f9f9f9' }}>SAQUES</td>}
             {Array.from({ length: 6 }).map((_, colIndex) => (
-              <td key={colIndex} style={{ padding: 0, verticalAlign: 'top', height: '11px' }}>
+              <td key={colIndex} style={{ padding: 0, verticalAlign: 'top', height: '14px' }}>
                 <div style={{ textAlign: 'left', fontSize: '6px', color: '#666', paddingLeft: '2px', paddingTop: '1px', lineHeight: '1' }}>
                   {rowIndex + 1}
                 </div>
@@ -204,8 +202,8 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <button 
           onClick={baixarPDF} 
           disabled={gerandoPDF}
-          style={{ padding: '12px 24px', backgroundColor: gerandoPDF ? '#94a3b8' : 'var(--cor-destaque, #2563eb)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
-          {gerandoPDF ? '⏳ A gerar documento...' : '📥 Descarregar Súmula Oficial (PDF)'}
+          style={{ padding: '12px 24px', backgroundColor: gerandoPDF ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+          {gerandoPDF ? '⏳ Gerando documento...' : '📥 Baixar Súmula Oficial (PDF)'}
         </button>
       </div>
 
@@ -221,7 +219,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
               <span><b>DATA:</b> ___/___/20__</span><span><b>HORÁRIO OFICIAL:</b> {jogo.horario}</span><span><b>CIDADE:</b> ___________________</span>
             </div>
           </div>
-          <div style={{ width: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e5e5e5', fontWeight: '900', fontSize: '16px', textAlign: 'center' }}>
+          <div style={{ width: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e5e5e5', fontWeight: '900', fontSize: '16px', textAlign: 'center' }}>
             SÚMULA OFICIAL<br/>DE VOLEIBOL
           </div>
         </div>
@@ -229,7 +227,8 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <div className="main-grid">
           
           <div className="left-col">
-            {Array.from({ length: numeroSets }).map((_, i) => renderSetGrid(i + 1))}
+            {/* Em MD3: Sets 1 e 2 na esquerda. Em MD5: Sets 1, 2 e 3 na esquerda */}
+            {Array.from({ length: isMd3 ? 2 : 3 }).map((_, i) => renderSetGrid(i + 1))}
             
             <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
               <div className="roster-wrapper" style={{ flex: 1.2 }}>
@@ -252,7 +251,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
               <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeB as TimeDb, false)}</div>
             </div>
 
-            <div className="roster-wrapper" style={{ marginTop: '5px' }}>
+            <div className="roster-wrapper" style={{ marginTop: '6px' }}>
               <div className="section-title">APROVAÇÃO (ARBITRAGEM)</div>
               <table className="table-bordered table-sm" style={{ fontSize: '11px', textAlign: 'left' }}>
                 <tbody>
@@ -265,7 +264,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
               </table>
             </div>
 
-            <div className="roster-wrapper" style={{ marginTop: '5px', border: '2px solid #000' }}>
+            <div className="roster-wrapper" style={{ marginTop: '6px', border: '2px solid #000' }}>
               <div className="section-title" style={{ backgroundColor: '#000', color: '#fff' }}>RESULTADOS</div>
               <div style={{ display: 'flex', borderBottom: '1px solid #000' }}>
                 <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px' }}>{jogo.timeA.nome}</div>
@@ -299,20 +298,24 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
                 </tbody>
               </table>
               
-              <div style={{ padding: '8px', textAlign: 'center', fontSize: '12px', borderTop: '1px solid #000', backgroundColor: '#e5e5e5' }}>
+              <div style={{ padding: '6px', textAlign: 'center', fontSize: '12px', borderTop: '1px solid #000', backgroundColor: '#e5e5e5' }}>
                 <b>VENCEDOR: </b> {isFinalizado ? ((jogo.setsVencidosA || 0) > (jogo.setsVencidosB || 0) ? jogo.timeA.nome.toUpperCase() : jogo.timeB.nome.toUpperCase()) : '________________________________'}
               </div>
             </div>
 
+            {/* Em MD3: Set 3 entra aqui no espaço vazio da direita. Em MD5: Sets 4 e 5 */}
+            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+              {Array.from({ length: isMd3 ? 1 : 2 }).map((_, i) => renderSetGrid((isMd3 ? 3 : 4) + i))}
+            </div>
           </div>
         </div>
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `
-        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1150px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 8px; display: flex; flex-direction: column; }
+        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1380px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 8px; display: flex; flex-direction: column; }
         .header-box { display: flex; border: 2px solid #000; margin-bottom: 8px; }
         .main-grid { display: flex; gap: 8px; flex: 1; }
-        .left-col { flex: 1.6; display: flex; flex-direction: column; gap: 8px; }
+        .left-col { flex: 1.15; display: flex; flex-direction: column; gap: 8px; }
         .right-col { flex: 1; display: flex; flex-direction: column; }
         
         .table-bordered { border-collapse: collapse; width: 100%; text-align: center; }
@@ -324,7 +327,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 4px 8px; font-size: 11px; }
         
         .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 8px; table-layout: fixed; height: 100%; }
-        .rotation-table td { border: 1px solid #000; padding: 1px; height: 11px; }
+        .rotation-table td { border: 1px solid #000; padding: 1px; height: 14px; }
         
         .points-container { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; justify-content: flex-start; }
         .point-box { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 8px; color: #333; font-weight: bold; }
