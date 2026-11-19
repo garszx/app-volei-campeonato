@@ -26,6 +26,7 @@ export interface TimeDb extends Time {
   sets_average?: number;
   points_average?: number;
   vitorias_calculadas?: number;
+  jogadores?: Jogador[]
 }
 
 export interface Partida {
@@ -50,4 +51,10 @@ export interface Partida {
   pontos_b?: number;
   sets_vencidos_a?: number;
   sets_vencidos_b?: number;
+}
+
+export interface Jogador {
+  numero: string;
+  nome: string;
+  isLibero?: boolean;
 }
