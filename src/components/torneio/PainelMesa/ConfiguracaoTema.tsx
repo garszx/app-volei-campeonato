@@ -11,14 +11,14 @@ interface Props {
   aoAtualizar: (novasRegras: Regras) => void;
 }
 
-const COR_PADRAO = 'var(--cor-destaque, #3b82f6)'; // Azul padrão atual
+const COR_PADRAO = '#3b82f6'; // Azul padrão atual
 
 export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar }: Props) {
   const [cor, setCor] = useState(regrasAtuais.corPrimaria || COR_PADRAO);
   const [logo, setLogo] = useState(regrasAtuais.logoUrl || '');
   const [salvando, setSalvando] = useState(false);
 
-  // Lê a imagem, redimensiona para ficar leve e extrai a cor vibrante dominante
+  // Lê a imagem, redimensiona em alta qualidade (WebP) e extrai a cor vibrante dominante
   const processarLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -31,14 +31,14 @@ export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Redimensiona mantendo proporção (máx 200px) para salvar leve no Supabase
-        const max = 200;
+        // Máx 800px para manter nitidez no fundo (desktop e telas Retina no celular)
+        const max = 800;
         const escala = Math.min(max / img.width, max / img.height, 1);
         canvas.width = img.width * escala;
         canvas.height = img.height * escala;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        const base64Leve = canvas.toDataURL('image/png');
+        const base64Leve = canvas.toDataURL('image/webp', 0.85);
         setLogo(base64Leve);
 
         // Extrai cor dominante ignorando transparência, branco e preto
@@ -51,11 +51,10 @@ export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar 
           const b = pixels[i + 2];
           const a = pixels[i + 3];
 
-          if (a < 128) continue; // Ignora transparente
+          if (a < 128) continue;
           const brilho = (r + g + b) / 3;
           const saturacao = Math.max(r, g, b) - Math.min(r, g, b);
 
-          // Pega apenas pixels com cor de verdade (evita cinza, preto e branco)
           if (brilho > 35 && brilho < 230 && saturacao > 35) {
             rTotal += r;
             gTotal += g;
@@ -123,7 +122,7 @@ export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar 
           <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
             Logo do Campeonato / Time
           </label>
-          <input type="file" accept="image/*" onChange={processarLogo} style={{ fontSize: '12px' }} />
+          <input type="file" accept="image/*" onChange={processarLogo} style={{ fontSize: '12px', maxWidth: '100%' }} />
         </div>
 
         {/* Prévia da Logo */}
@@ -138,7 +137,7 @@ export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar 
           />
         )}
 
-        {/* Seletor de Cor (preenchido automaticamente pela logo, mas editável) */}
+        {/* Seletor de Cor */}
         <div>
           <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
             Cor de Destaque
@@ -155,7 +154,7 @@ export default function ConfiguracaoTema({ torneioId, regrasAtuais, aoAtualizar 
         </div>
 
         {/* Botões de Ação */}
-        <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: 'auto' }}>
           <button
             onClick={() => salvarNoBanco(cor, logo)}
             disabled={salvando}
