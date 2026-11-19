@@ -48,7 +48,7 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
     
     try {
       const canvas = await html2canvas(sumulaRef.current, {
-        scale: 4,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff'
       });
@@ -56,8 +56,9 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'landscape', format: 'a4' });
       
-      const pdfWidth = pdf.internal.pageSize.getWidth(); 
-      const pdfHeight = pdf.internal.pageSize.getHeight(); 
+      const margin = 5;
+      const pdfWidth = pdf.internal.pageSize.getWidth() - margin * 2; 
+      const pdfHeight = pdf.internal.pageSize.getHeight() - margin * 2; 
       
       const canvasRatio = canvas.width / canvas.height;
       let renderWidth = pdfWidth;
@@ -68,8 +69,8 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         renderWidth = pdfHeight * canvasRatio;
       }
       
-      const x = (pdfWidth - renderWidth) / 2;
-      const y = (pdfHeight - renderHeight) / 2;
+      const x = margin + (pdfWidth - renderWidth) / 2;
+      const y = margin + (pdfHeight - renderHeight) / 2;
       
       pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
       pdf.save(`Sumula_${jogo?.timeA?.nome}_x_${jogo?.timeB?.nome}.pdf`);
@@ -213,126 +214,4 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
           <div style={{ flex: 1, padding: '10px', borderRight: '2px solid #000' }}>
             <h1 style={{ margin: '0 0 6px 0', fontSize: '18px', textTransform: 'uppercase' }}>{regras?.nomeCampeonato || 'Campeonato de Voleibol'}</h1>
             <div style={{ fontSize: '12px', display: 'flex', gap: '20px' }}>
-              <span><b>FASE:</b> {jogo.fase.toUpperCase()}</span><span><b>JOGO Nº:</b> {jogo.ordem || jogo.numero || '-'}</span><span><b>NAIPE:</b> [ ] M [ ] F</span>
-            </div>
-            <div style={{ fontSize: '12px', display: 'flex', gap: '20px', marginTop: '6px' }}>
-              <span><b>DATA:</b> ___/___/20__</span><span><b>HORÁRIO OFICIAL:</b> {jogo.horario}</span><span><b>CIDADE:</b> ___________________</span>
-            </div>
-          </div>
-          <div style={{ width: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e5e5e5', fontWeight: '900', fontSize: '16px', textAlign: 'center' }}>
-            SÚMULA OFICIAL<br/>DE VOLEIBOL
-          </div>
-        </div>
-
-        <div className="main-grid">
-          
-          <div className="left-col">
-            {/* Em MD3: Sets 1 e 2 na esquerda. Em MD5: Sets 1, 2 e 3 na esquerda */}
-            {Array.from({ length: isMd3 ? 2 : 3 }).map((_, i) => renderSetGrid(i + 1))}
-            
-            <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
-              <div className="roster-wrapper" style={{ flex: 1.2 }}>
-                <div className="section-title">SANÇÕES</div>
-                <table className="table-bordered table-sm" style={{ fontSize: '10px' }}>
-                  <thead><tr><th>A</th><th>P</th><th>E</th><th>D</th><th>A/B</th><th>SET</th><th>PLACAR</th></tr></thead>
-                  <tbody>{Array.from({ length: 4 }).map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
-                </table>
-              </div>
-              <div className="roster-wrapper" style={{ flex: 2 }}>
-                <div className="section-title">OBSERVAÇÕES</div>
-                <div style={{ height: '78px', padding: '4px', fontSize: '11px', borderBottom: '1px solid #ccc' }}></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="right-col">
-            <div style={{ display: 'flex', gap: '5px' }}>
-              <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeA as TimeDb, true)}</div>
-              <div style={{ flex: 1 }}>{renderEscalacao(jogo.timeB as TimeDb, false)}</div>
-            </div>
-
-            <div className="roster-wrapper" style={{ marginTop: '6px' }}>
-              <div className="section-title">APROVAÇÃO (ARBITRAGEM)</div>
-              <table className="table-bordered table-sm" style={{ fontSize: '11px', textAlign: 'left' }}>
-                <tbody>
-                  <tr><td style={{ width: '60%' }}>1º Árbitro:</td><td>Assinatura:</td></tr>
-                  <tr><td>2º Árbitro:</td><td>Assinatura:</td></tr>
-                  <tr><td>Apontador:</td><td>Assinatura:</td></tr>
-                  <tr><td>Juiz de Linha 1: ______________</td><td>Juiz 3: ______________</td></tr>
-                  <tr><td>Juiz de Linha 2: ______________</td><td>Juiz 4: ______________</td></tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="roster-wrapper" style={{ marginTop: '6px', border: '2px solid #000' }}>
-              <div className="section-title" style={{ backgroundColor: '#000', color: '#fff' }}>RESULTADOS</div>
-              <div style={{ display: 'flex', borderBottom: '1px solid #000' }}>
-                <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px' }}>{jogo.timeA.nome}</div>
-                <div style={{ width: '35px', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', borderRight: '1px solid #000', padding: '4px' }}>SET</div>
-                <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 'bold', padding: '4px' }}>{jogo.timeB.nome}</div>
-              </div>
-
-              <table className="table-bordered table-sm" style={{ fontSize: '11px', borderTop: 'none' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f0f0f0' }}>
-                    <th style={{ width: '12%' }}>T</th><th style={{ width: '12%' }}>S</th><th style={{ width: '12%' }}>V</th><th style={{ width: '14%' }}>P</th>
-                    <th style={{ width: '10%' }}>Nº</th>
-                    <th style={{ width: '14%' }}>P</th><th style={{ width: '12%' }}>V</th><th style={{ width: '12%' }}>S</th><th style={{ width: '12%' }}>T</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhasResultado.map((linha, i) => (
-                    <tr key={i}>
-                      <td></td><td></td><td style={{ fontWeight: 'bold' }}>{linha.vA}</td><td style={{ fontWeight: 'bold', fontSize: '12px' }}>{linha.pA}</td>
-                      <td style={{ backgroundColor: '#e5e5e5', fontWeight: 'bold' }}>{i + 1}</td>
-                      <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{linha.pB}</td><td style={{ fontWeight: 'bold' }}>{linha.vB}</td><td></td><td></td>
-                    </tr>
-                  ))}
-                  <tr style={{ backgroundColor: '#f9f9f9' }}>
-                    <td colSpan={2} style={{ fontWeight: 'bold', textAlign: 'right', paddingRight: '4px' }}>TOTAL</td>
-                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{jogo.setsVencidosA || 0}</td><td style={{ fontWeight: 'bold', fontSize: '12px' }}>{totalPtsA || 0}</td>
-                    <td style={{ backgroundColor: '#000', color: '#fff', fontWeight: 'bold' }}>T</td>
-                    <td style={{ fontWeight: 'bold', fontSize: '12px' }}>{totalPtsB || 0}</td><td style={{ fontWeight: 'bold', fontSize: '12px' }}>{jogo.setsVencidosB || 0}</td>
-                    <td colSpan={2} style={{ fontWeight: 'bold', textAlign: 'left', paddingLeft: '4px' }}>TOTAL</td>
-                  </tr>
-                </tbody>
-              </table>
-              
-              <div style={{ padding: '6px', textAlign: 'center', fontSize: '12px', borderTop: '1px solid #000', backgroundColor: '#e5e5e5' }}>
-                <b>VENCEDOR: </b> {isFinalizado ? ((jogo.setsVencidosA || 0) > (jogo.setsVencidosB || 0) ? jogo.timeA.nome.toUpperCase() : jogo.timeB.nome.toUpperCase()) : '________________________________'}
-              </div>
-            </div>
-
-            {/* Em MD3: Set 3 entra aqui no espaço vazio da direita. Em MD5: Sets 4 e 5 */}
-            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-              {Array.from({ length: isMd3 ? 1 : 2 }).map((_, i) => renderSetGrid((isMd3 ? 3 : 4) + i))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .cbv-container { font-family: 'Arial', sans-serif; color: #000; font-size: 11px; background: #fff; width: 1380px; margin: 0 auto; box-sizing: border-box; border: 1px solid #000; padding: 8px; display: flex; flex-direction: column; }
-        .header-box { display: flex; border: 2px solid #000; margin-bottom: 8px; }
-        .main-grid { display: flex; gap: 8px; flex: 1; }
-        .left-col { flex: 1.15; display: flex; flex-direction: column; gap: 8px; }
-        .right-col { flex: 1; display: flex; flex-direction: column; }
-        
-        .table-bordered { border-collapse: collapse; width: 100%; text-align: center; }
-        .table-bordered th, .table-bordered td { border: 1px solid #000; padding: 3px; }
-        .table-sm td, .table-sm th { padding: 2px !important; height: 18px; }
-        
-        .section-title { font-weight: bold; background-color: #e5e5e5; text-transform: uppercase; border-bottom: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
-        .set-wrapper { border: 2px solid #000; display: flex; flex-direction: column; flex: 1; min-height: 0; }
-        .set-header { display: flex; justify-content: space-between; font-weight: bold; background-color: #e5e5e5; border-bottom: 1px solid #000; padding: 4px 8px; font-size: 11px; }
-        
-        .rotation-table { border-collapse: collapse; width: 100%; text-align: center; font-size: 8px; table-layout: fixed; height: 100%; }
-        .rotation-table td { border: 1px solid #000; padding: 1px; height: 14px; }
-        
-        .points-container { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; justify-content: flex-start; }
-        .point-box { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; border: 1px solid #999; font-size: 8px; color: #333; font-weight: bold; }
-        .roster-wrapper { border: 1px solid #000; }
-      `}} />
-    </div>
-  );
-}
+              <span><b>
