@@ -108,6 +108,7 @@ export function useTorneio(torneioId: string) {
             setsVencidosA: p.sets_vencidos_a,
             setsVencidosB: p.sets_vencidos_b,
             parciais: p.parciais,
+            lado_invertido: Boolean(p.lado_invertido),
             timeA: mapaTimes[p.time_a_id] || { id: p.time_a_id, nome: '?', escudoUrl: '' },
             timeB: mapaTimes[p.time_b_id] || { id: p.time_b_id, nome: '?', escudoUrl: '' }
           };
@@ -149,6 +150,7 @@ export function useTorneio(torneioId: string) {
                 setsVencidosB: dados.sets_vencidos_b, 
                 status: dados.status,
                 parciais: dados.parciais,
+                lado_invertido: dados.lado_invertido ?? p.lado_invertido,
                 timeA: dados.time_a_id && mapaAtual[dados.time_a_id] ? mapaAtual[dados.time_a_id] : p.timeA,
                 timeB: dados.time_b_id && mapaAtual[dados.time_b_id] ? mapaAtual[dados.time_b_id] : p.timeB
               } 
@@ -200,6 +202,21 @@ export function useTorneio(torneioId: string) {
   const iniciarPartida = async (id: string) => { 
     setPartidas(prev => prev.map(p => p.id === id ? { ...p, status: 'em_andamento' } : p));
     await supabase.from('partidas').update({ status: 'em_andamento' }).eq('id', id);
+  };
+
+  const inverterLados = async (id: string, estadoAtual: boolean) => {
+    const novoEstado = !estadoAtual;
+    setPartidas(prev => prev.map(p => p.id === id ? { ...p, lado_invertido: novoEstado } : p));
+
+    const { error } = await supabase
+      .from('partidas')
+      .update({ lado_invertido: novoEstado })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao inverter lados:', error);
+      setPartidas(prev => prev.map(p => p.id === id ? { ...p, lado_invertido: estadoAtual } : p));
+    }
   };
   
   const atualizarPlacar = async (id: string, time: 'A' | 'B', valor: number) => {
@@ -375,7 +392,9 @@ export function useTorneio(torneioId: string) {
     }
     return false;
   };
-  const isInvertido = verificarInversaoFIVB(jogoAtual);
+
+  // Combina a inversão automática da FIVB com a escolha manual do sorteio (XOR)
+  const isInvertido = verificarInversaoFIVB(jogoAtual) !== Boolean(jogoAtual?.lado_invertido);
 
   return {
     timesClassificacao, timesBase, partidas, statusTorneio, regras, timesMap,
@@ -386,7 +405,7 @@ export function useTorneio(torneioId: string) {
     editParciais, setEditParciais,
     urlAtual, jogoAtual, proximoJogo, isInvertido,
     handleLogin, fazerLogout, atualizarNomeEquipe, handleUploadLogoGlobal, atualizarChaveEquipe,
-    iniciarPartida, atualizarPlacar, recalcularTabela: () => {}, abrirEdicao, salvarEdicao, encerrarAcao,
+    iniciarPartida, inverterLados, atualizarPlacar, recalcularTabela: () => {}, abrirEdicao, salvarEdicao, encerrarAcao,
     gerarTabelaDinamica, gerarSemifinais, gerarFinalDireta, gerarFinais, encerrarCampeonatoPontosCorridos,
     gerarRelatorioELimpar, baixarQRCode, compartilharLink
   };

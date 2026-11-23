@@ -43,6 +43,7 @@ export interface Partida {
   parciais?: string;
   timeA: Time | TimeDb;
   timeB: Time | TimeDb;
+  lado_invertido?: boolean;
   
   
   time_a_id?: string;

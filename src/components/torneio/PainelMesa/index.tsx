@@ -17,6 +17,7 @@ interface PainelMesaProps {
   handleUploadLogoGlobal: (id: string, e: React.ChangeEvent<HTMLInputElement>) => void;
   atualizarChaveEquipe: (id: string, chave: string) => void;
   atualizarPlacar: (id: string, time: 'A'|'B', valor: number) => void;
+  inverterLados: (id: string, estadoAtual: boolean) => void;
   encerrarAcao: (jogo: Partida) => void; iniciarPartida: (id: string) => void;
   gerarSemifinais: () => void; gerarFinalDireta: () => void;
   encerrarCampeonatoPontosCorridos: () => void; gerarFinais: () => void;
@@ -115,7 +116,28 @@ export default function PainelMesa(props: PainelMesaProps) {
         <div className={styles.placarBase}>
           <div className={styles.infoJogo}>
             <h2 className={styles.titulo}>Jogo em Andamento - {jogoAtual.horario}</h2>
-            {isInvertido && <span style={{display: 'inline-block', backgroundColor: '#f59e0b', color: 'black', fontWeight: 'bold', padding: '4px 12px', borderRadius: '9999px', margin: '10px 0', fontSize: '12px', letterSpacing: '0.05em'}}>LADOS INVERTIDOS (FIVB)</span>}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '10px 0' }}>
+              {isInvertido && (
+                <span style={{ display: 'inline-block', backgroundColor: '#f59e0b', color: 'black', fontWeight: 'bold', padding: '4px 12px', borderRadius: '9999px', fontSize: '12px', letterSpacing: '0.05em' }}>
+                  LADOS INVERTIDOS
+                </span>
+              )}
+              <button
+                onClick={() => props.inverterLados(jogoAtual.id, Boolean(jogoAtual.lado_invertido))}
+                style={{
+                  padding: '6px 14px',
+                  backgroundColor: '#334155',
+                  color: '#f8fafc',
+                  border: '1px solid #475569',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ⇄ Inverter Lados
+              </button>
+            </div>
             <div className={styles.sets}>Sets: {setsA_UI || 0} x {setsB_UI || 0}</div>
           </div>
           
