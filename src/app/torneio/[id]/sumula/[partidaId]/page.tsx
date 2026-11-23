@@ -212,7 +212,6 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
         <span>INÍCIO: ___:___ | FIM: ___:___</span>
       </div>
       <div style={{ display: 'flex', flex: 1 }}>
-        {/* Coluna única de rótulos à esquerda */}
         <div style={{ width: '56px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #000', backgroundColor: '#f9f9f9' }}>
           <div style={{ padding: '3px 2px', borderBottom: '1px solid #000', fontSize: '7px', fontWeight: 'bold', textAlign: 'center' }}>EQUIPE</div>
           <table className="rotation-table" style={{ flex: 1 }}>
@@ -227,13 +226,9 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
           </table>
         </div>
 
-        {/* Painel 1: Lado Esquerdo (antes da troca) */}
+        {renderBlocoTieBreak('EQ: ________')}
         {renderBlocoTieBreak('EQ: ________')}
 
-        {/* Painel 2: Lado Direito */}
-        {renderBlocoTieBreak('EQ: ________')}
-
-        {/* Divisor Vertical: TROCA DE LADO */}
         <div style={{
           width: '20px',
           backgroundColor: '#000',
@@ -253,14 +248,12 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
           ))}
         </div>
 
-        {/* Painel 3: Lado Esquerdo repetido (após a troca) */}
         {renderBlocoTieBreak('EQ: ________', true)}
       </div>
     </div>
   );
 
   const renderSetGrid = (numSet: number) => {
-    // Se for o set decisivo (3º no MD3 ou 5º no MD5), usa o layout oficial de Tie-Break
     if (numSet === numeroSets) {
       return renderTieBreakGrid(numSet);
     }
@@ -300,8 +293,8 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
 
   const renderEscalacao = (time: TimeDb, isEquipeA: boolean) => {
     const lista = (time.jogadores || []) as Jogador[];
-    const linhaJogadores = lista.filter((j) => !j.isLibero);
     const liberos = lista.filter((j) => j.isLibero);
+    const totalLinhas = Math.max(14, lista.length);
 
     return (
       <div className="roster-wrapper">
@@ -311,12 +304,14 @@ export default function SumulaOficial({ params }: { params: Promise<{ id: string
             <tr><th style={{ width: '15%' }}>Nº</th><th>NOME DO JOGADOR</th></tr>
           </thead>
           <tbody>
-            {Array.from({ length: 12 }).map((_, i) => {
-              const atleta = linhaJogadores[i];
+            {Array.from({ length: totalLinhas }).map((_, i) => {
+              const atleta = lista[i];
               return (
                 <tr key={i}>
                   <td style={{ fontWeight: 'bold' }}>{atleta?.numero || '\u00A0'}</td>
-                  <td style={{ textAlign: 'left', paddingLeft: '6px' }}>{atleta?.nome || '\u00A0'}</td>
+                  <td style={{ textAlign: 'left', paddingLeft: '6px' }}>
+                    {atleta ? `${atleta.nome}${atleta.isLibero ? ' (L)' : ''}` : '\u00A0'}
+                  </td>
                 </tr>
               );
             })}
