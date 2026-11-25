@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../../supabase';
-import { Patota, PatotaInscricao } from '../../../types/patota';
+import { Patota, PatotaInscricao, PosicaoVolei } from '../../../types/patota';
+
+const ORDEM_POSICOES: PosicaoVolei[] = ['Levantador', 'Ponteiro', 'Central', 'Oposto', 'Líbero'];
 
 export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -20,6 +22,7 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
 
   const [nomeJogador, setNomeJogador] = useState('');
   const [whatsappJogador, setWhatsappJogador] = useState('');
+  const [posicaoSelecionada, setPosicaoSelecionada] = useState<string>('');
 
   const carregarPatota = useCallback(async () => {
     const { data: authData } = await supabase.auth.getUser();
@@ -104,19 +107,27 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
   const handleInscrever = async () => {
     if (!patota || !user) return;
     if (!nomeJogador.trim()) return alert('Informe seu nome para entrar na lista.');
+    if (patota.formato === '5x1' && patota.vagas_posicoes && !posicaoSelecionada) {
+      return alert('Escolha sua posição antes de entrar na lista.');
+    }
 
     setProcessando(true);
     const { data, error } = await supabase.rpc('inscrever_patota', {
       p_patota_id: patota.id,
       p_nome_jogador: nomeJogador.trim(),
       p_whatsapp_jogador: whatsappJogador.trim() || null,
+      p_posicao: patota.formato === '5x1' ? posicaoSelecionada : null,
     });
     setProcessando(false);
 
     if (error) {
       alert(error.message);
     } else {
-      alert(data === 'confirmado' ? 'Vaga confirmada na lista!' : 'Lista cheia! Você entrou na fila de espera.');
+      alert(
+        data === 'confirmado'
+          ? 'Vaga confirmada na lista!'
+          : 'Vagas cheias para essa opção! Você entrou na fila de espera.'
+      );
       await carregarPatota();
     }
   };
@@ -178,25 +189,31 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
     const confirmados = inscricoes.filter((i) => i.status_vaga === 'confirmado');
     const espera = inscricoes.filter((i) => i.status_vaga === 'espera');
 
-    const dataFmt = new Date(patota.data_hora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-    const horarioFmt = patota.hora_fim ? `${dataFmt} às ${patota.hora_fim}` : dataFmt;
+    const dataObj = new Date(patota.data_hora);
+    const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    const diaCap = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
+    const dataStr = dataObj.toLocaleDateString('pt-BR');
+    const horaStr = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const horarioFmt = patota.hora_fim ? `${diaCap}, ${dataStr} • ${horaStr} às ${patota.hora_fim}` : `${diaCap}, ${dataStr} • ${horaStr}`;
     const valorFmt = Number(patota.valor) > 0 ? `R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}` : 'Gratuito';
 
-    let texto = `🏐 *${patota.titulo}*\n📍 ${patota.local_nome}\n📅 ${horarioFmt}\n💰 ${valorFmt}\n\n`;
+    let texto = `🏐 *${patota.titulo}* (${patota.formato || '6x0'})\n📍 ${patota.local_nome}\n📅 ${horarioFmt}\n💰 ${valorFmt}\n\n`;
     texto += `*Confirmados (${confirmados.length}/${patota.vagas_total}):*\n`;
     confirmados.forEach((c, idx) => {
       const pago = Number(patota.valor) > 0 && c.status_pagamento === 'pago' ? ' ✅' : '';
-      texto += `${idx + 1}. ${c.nome_jogador}${pago}\n`;
+      const posTag = c.posicao ? ` [${c.posicao}]` : '';
+      texto += `${idx + 1}. ${c.nome_jogador}${posTag}${pago}\n`;
     });
 
     if (espera.length > 0) {
       texto += `\n*Fila de Espera:*\n`;
       espera.forEach((e, idx) => {
-        texto += `${idx + 1}. ${e.nome_jogador}\n`;
+        const posTag = e.posicao ? ` [${e.posicao}]` : '';
+        texto += `${idx + 1}. ${e.nome_jogador}${posTag}\n`;
       });
     }
 
-    texto += `\n🔗 Lista online: ${window.location.href}`;
+    texto += `\n🔗 Entrar na lista / ver presença:\n${window.location.href}`;
     navigator.clipboard.writeText(texto);
     alert('Lista copiada para colar no WhatsApp!');
   };
@@ -219,6 +236,42 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
   const minhaInscricao = user ? inscricoes.find((i) => i.user_id === user.id) : undefined;
   const isCriador = Boolean(user && patota.criador_id === user.id);
   const isPaga = Number(patota.valor) > 0;
+  const is5x1 = patota.formato === '5x1' && Boolean(patota.vagas_posicoes);
+  const usaMioloCompartilhado = Boolean(is5x1 && patota.vagas_posicoes?.MioloTotal);
+
+  const confCentral = confirmados.filter((c) => c.posicao === 'Central').length;
+  const confLibero = confirmados.filter((c) => c.posicao === 'Líbero').length;
+  const totalMioloVagas = patota.vagas_posicoes?.Central ?? 0;
+  const maxLiberosVagas = patota.vagas_posicoes?.Líbero ?? 0;
+
+  const resumoPosicoes = is5x1
+    ? ORDEM_POSICOES.filter((pos) => (patota.vagas_posicoes?.[pos] ?? 0) > 0).map((pos) => {
+        if (usaMioloCompartilhado && pos === 'Central') {
+          const ocupadasMiolo = confCentral + confLibero;
+          return {
+            pos,
+            label: `Central (${confCentral} insc. • ${ocupadasMiolo}/${totalMioloVagas} miolo)`,
+            lotada: ocupadasMiolo >= totalMioloVagas,
+          };
+        }
+        if (usaMioloCompartilhado && pos === 'Líbero') {
+          const ocupadasMiolo = confCentral + confLibero;
+          const lotada = confLibero >= maxLiberosVagas || ocupadasMiolo >= totalMioloVagas;
+          return {
+            pos,
+            label: `Líbero (${confLibero}/${maxLiberosVagas})`,
+            lotada,
+          };
+        }
+        const total = patota.vagas_posicoes?.[pos] ?? 0;
+        const ocupadas = confirmados.filter((c) => c.posicao === pos).length;
+        return {
+          pos,
+          label: `${pos} (${ocupadas}/${total})`,
+          lotada: ocupadas >= total,
+        };
+      })
+    : [];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', padding: '24px 16px' }}>
@@ -240,9 +293,36 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
               📅 <strong>Data:</strong> {new Date(patota.data_hora).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })}
               {patota.hora_fim ? ` às ${patota.hora_fim}` : ''}
             </div>
-            <div>🏐 <strong>Formato / Nível:</strong> {patota.formato || '6x6'} • {patota.nivel || 'Livre'}</div>
+            <div>🏐 <strong>Sistema / Nível:</strong> {patota.formato || '6x0'} • {patota.nivel || 'Livre'}</div>
             <div>💰 <strong>Valor:</strong> {isPaga ? `R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}` : 'Gratuito'} • <strong>Vagas:</strong> {confirmados.length}/{patota.vagas_total}</div>
           </div>
+
+          {/* Quadro de vagas por posição quando for 5x1 */}
+          {is5x1 && resumoPosicoes.length > 0 && (
+            <div style={{ marginTop: '14px', padding: '12px', backgroundColor: '#0f172a', borderRadius: '10px', border: '1px solid #334155' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', fontWeight: 'bold' }}>
+                Vagas por posição (5x1):
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {resumoPosicoes.map(({ pos, label, lotada }) => (
+                  <span
+                    key={pos}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      backgroundColor: lotada ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      border: `1px solid ${lotada ? '#ef4444' : '#10b981'}`,
+                      color: lotada ? '#fca5a5' : '#6ee7b7',
+                    }}
+                  >
+                    {label} {lotada ? '(Lotado)' : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isPaga && patota.pix_chave && (
             <div style={{ marginTop: '14px', padding: '12px', backgroundColor: '#0f172a', borderRadius: '10px', border: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -285,7 +365,8 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
           ) : minhaInscricao ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ fontSize: '15px' }}>
-                Você está na lista como <strong>{minhaInscricao.nome_jogador}</strong> — Status:{' '}
+                Você está na lista como <strong>{minhaInscricao.nome_jogador}</strong>
+                {minhaInscricao.posicao ? ` (${minhaInscricao.posicao})` : ''} — Status:{' '}
                 <strong style={{ color: minhaInscricao.status_vaga === 'confirmado' ? '#34d399' : '#fbbf24' }}>
                   {minhaInscricao.status_vaga === 'confirmado' ? 'CONFIRMADO' : 'FILA DE ESPERA'}
                 </strong>
@@ -311,13 +392,27 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
             </div>
           ) : patota.status === 'aberta' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px' }}>
                 <input
                   placeholder="Seu nome na lista *"
                   value={nomeJogador}
                   onChange={(e) => setNomeJogador(e.target.value)}
                   style={{ padding: '10px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff' }}
                 />
+                {is5x1 && (
+                  <select
+                    value={posicaoSelecionada}
+                    onChange={(e) => setPosicaoSelecionada(e.target.value)}
+                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff' }}
+                  >
+                    <option value="">Escolha sua posição *</option>
+                    {resumoPosicoes.map(({ pos, label, lotada }) => (
+                      <option key={pos} value={pos}>
+                        {label}{lotada ? ' - Fila de espera' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <input
                   placeholder="WhatsApp (opcional)"
                   value={whatsappJogador}
@@ -330,7 +425,15 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
                 disabled={processando}
                 style={{ padding: '12px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}
               >
-                {processando ? 'Salvando...' : confirmados.length < patota.vagas_total ? '✅ Confirmar Minha Vaga' : '⏳ Entrar na Fila de Espera'}
+                {processando
+                  ? 'Salvando...'
+                  : is5x1
+                  ? posicaoSelecionada && resumoPosicoes.find((r) => r.pos === posicaoSelecionada)?.lotada
+                    ? `⏳ Entrar na Espera (${posicaoSelecionada})`
+                    : '✅ Confirmar Minha Vaga'
+                  : confirmados.length < patota.vagas_total
+                  ? '✅ Confirmar Minha Vaga'
+                  : '⏳ Entrar na Fila de Espera'}
               </button>
             </div>
           ) : (
@@ -347,9 +450,14 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {confirmados.map((item, idx) => (
                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155', gap: '10px' }}>
-                  <div>
-                    <span style={{ color: '#64748b', marginRight: '8px', fontWeight: 'bold' }}>{idx + 1}.</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#64748b', fontWeight: 'bold' }}>{idx + 1}.</span>
                     <strong>{item.nome_jogador}</strong>
+                    {item.posicao && (
+                      <span style={{ padding: '2px 8px', borderRadius: '999px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '11px', fontWeight: 'bold' }}>
+                        {item.posicao}
+                      </span>
+                    )}
                   </div>
                   {isPaga && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -378,9 +486,14 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
             <h2 style={{ margin: '0 0 14px', fontSize: '17px', color: '#fbbf24' }}>⏳ Fila de Espera ({espera.length})</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {espera.map((item, idx) => (
-                <div key={item.id} style={{ padding: '10px 12px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
-                  <span style={{ color: '#fbbf24', marginRight: '8px', fontWeight: 'bold' }}>{idx + 1}.</span>
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{idx + 1}.</span>
                   <strong>{item.nome_jogador}</strong>
+                  {item.posicao && (
+                    <span style={{ padding: '2px 8px', borderRadius: '999px', backgroundColor: '#1e293b', border: '1px solid #fbbf24', color: '#fbbf24', fontSize: '11px', fontWeight: 'bold' }}>
+                      {item.posicao}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

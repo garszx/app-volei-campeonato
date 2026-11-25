@@ -1,3 +1,14 @@
+export type PosicaoVolei = 'Levantador' | 'Ponteiro' | 'Central' | 'Oposto' | 'Líbero';
+
+export interface VagasPosicoes {
+  Levantador: number;
+  Ponteiro: number;
+  Central: number;
+  Oposto: number;
+  Líbero: number;
+  MioloTotal?: boolean;
+}
+
 export interface Patota {
   id: string;
   slug: string;
@@ -10,6 +21,7 @@ export interface Patota {
   formato?: string | null;
   nivel?: string | null;
   vagas_total: number;
+  vagas_posicoes?: VagasPosicoes | null;
   valor: number;
   tipo_pagamento?: string | null;
   pix_chave?: string | null;
@@ -27,6 +39,7 @@ export interface PatotaInscricao {
   user_id: string;
   nome_jogador: string;
   whatsapp_jogador?: string | null;
+  posicao?: PosicaoVolei | string | null;
   status_vaga: 'confirmado' | 'espera' | 'cancelado' | string;
   status_pagamento?: 'pendente' | 'aguardando_confirmacao' | 'pago' | string;
   created_at: string;

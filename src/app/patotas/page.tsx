@@ -5,7 +5,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../supabase';
-import { Patota } from '../../types/patota';
+import { Patota, PosicaoVolei, VagasPosicoes } from '../../types/patota';
+
+const POSICOES_5X1: PosicaoVolei[] = ['Levantador', 'Ponteiro', 'Central', 'Oposto', 'Líbero'];
+
+function gerarPreset5x1(qtdTimes: number): VagasPosicoes {
+  return {
+    Levantador: qtdTimes,
+    Ponteiro: qtdTimes * 2,
+    Central: qtdTimes * 2,
+    Oposto: qtdTimes,
+    Líbero: qtdTimes,
+    MioloTotal: true,
+  };
+}
 
 function gerarSlug(titulo: string) {
   const base = titulo
@@ -32,9 +45,11 @@ export default function PaginaPatotas() {
   const [localMapsUrl, setLocalMapsUrl] = useState('');
   const [dataHora, setDataHora] = useState('');
   const [horaFim, setHoraFim] = useState('');
-  const [formato, setFormato] = useState('6x6');
+  const [formato, setFormato] = useState<'6x0' | '4x2' | '5x1'>('6x0');
   const [nivel, setNivel] = useState('Misto / Intermediário');
   const [vagasTotal, setVagasTotal] = useState(18);
+  const [qtdTimes5x1, setQtdTimes5x1] = useState(1);
+  const [vagasPosicoes, setVagasPosicoes] = useState<VagasPosicoes>(() => gerarPreset5x1(1));
   const [valor, setValor] = useState(15);
   const [pixChave, setPixChave] = useState('');
   const [pixTitular, setPixTitular] = useState('');
@@ -70,11 +85,34 @@ export default function PaginaPatotas() {
     setUser(null);
   };
 
+  const totalPosicoes5x1 =
+    Number(vagasPosicoes.Levantador || 0) +
+    Number(vagasPosicoes.Ponteiro || 0) +
+    Number(vagasPosicoes.Central || 0) +
+    Number(vagasPosicoes.Oposto || 0);
+
+  const alterarTimes5x1 = (times: number) => {
+    setQtdTimes5x1(times);
+    setVagasPosicoes(gerarPreset5x1(times));
+  };
+
+  const alterarVagaPosicao = (pos: PosicaoVolei, qtd: number) => {
+    setVagasPosicoes((prev) => ({
+      ...prev,
+      [pos]: Math.max(0, qtd),
+    }));
+  };
+
   const criarPatota = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return alert('Faça login primeiro para criar uma patota.');
     if (!titulo.trim() || !localNome.trim() || !dataHora) {
       return alert('Preencha título, local e data/hora.');
+    }
+
+    const totalFinal = formato === '5x1' ? totalPosicoes5x1 : Number(vagasTotal);
+    if (totalFinal < 2) {
+      return alert('Informe pelo menos 2 vagas.');
     }
 
     setSalvando(true);
@@ -92,7 +130,8 @@ export default function PaginaPatotas() {
         hora_fim: horaFim.trim() || null,
         formato,
         nivel,
-        vagas_total: Number(vagasTotal),
+        vagas_total: totalFinal,
+        vagas_posicoes: formato === '5x1' ? vagasPosicoes : null,
         valor: Number(valor),
         tipo_pagamento: pixChave.trim() ? 'pix' : 'local',
         pix_chave: pixChave.trim() || null,
@@ -225,22 +264,93 @@ export default function PaginaPatotas() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Formato</label>
-                <input style={inputStyle} value={formato} onChange={(e) => setFormato(e.target.value)} />
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Sistema de Jogo</label>
+                <select
+                  style={inputStyle}
+                  value={formato}
+                  onChange={(e) => setFormato(e.target.value as '6x0' | '4x2' | '5x1')}
+                >
+                  <option value="6x0">6x0 (Rodízio livre)</option>
+                  <option value="4x2">4x2 (2 levantadores)</option>
+                  <option value="5x1">5x1 (Por posição)</option>
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Nível</label>
                 <input style={inputStyle} value={nivel} onChange={(e) => setNivel(e.target.value)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Total de Vagas</label>
-                <input type="number" min={2} style={inputStyle} value={vagasTotal} onChange={(e) => setVagasTotal(Number(e.target.value))} />
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
+                  {formato === '5x1' ? 'Total de Vagas (auto)' : 'Total de Vagas'}
+                </label>
+                <input
+                  type="number"
+                  min={2}
+                  style={{ ...inputStyle, opacity: formato === '5x1' ? 0.7 : 1 }}
+                  value={formato === '5x1' ? totalPosicoes5x1 : vagasTotal}
+                  disabled={formato === '5x1'}
+                  onChange={(e) => setVagasTotal(Number(e.target.value))}
+                />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Valor (R$)</label>
                 <input type="number" step="0.5" min={0} style={inputStyle} value={valor} onChange={(e) => setValor(Number(e.target.value))} />
               </div>
             </div>
+
+            {/* Configuração inteligente de vagas por posição no 5x1 */}
+            {formato === '5x1' && (
+              <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#38bdf8' }}>
+                    🎯 Preset de Times (5x1):
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[1, 2, 3, 4].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => alterarTimes5x1(t)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          border: qtdTimes5x1 === t ? '1px solid #38bdf8' : '1px solid #334155',
+                          backgroundColor: qtdTimes5x1 === t ? '#1e293b' : 'transparent',
+                          color: qtdTimes5x1 === t ? '#38bdf8' : '#94a3b8',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {t} {t === 1 ? 'Time' : 'Times'} ({t * 6} vagas)
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.4' }}>
+                  💡 <strong>Regra automática de miolo:</strong> as vagas de <strong>Central</strong> ({vagasPosicoes.Central}) são compartilhadas com <strong>Líbero</strong> (máx. {vagasPosicoes.Líbero} líbero{vagasPosicoes.Líbero === 1 ? '' : 's'}, garantindo sempre 1 Central na rede de cada time).
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))', gap: '10px' }}>
+                  {POSICOES_5X1.map((pos) => (
+                    <div key={pos}>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
+                        {pos === 'Líbero' ? 'Máx. Líbero' : pos === 'Central' ? 'Miolo (Central+Líb)' : pos}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={12}
+                        style={inputStyle}
+                        value={vagasPosicoes[pos]}
+                        onChange={(e) => alterarVagaPosicao(pos, Number(e.target.value))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               <div>
@@ -307,7 +417,7 @@ export default function PaginaPatotas() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '999px', backgroundColor: '#0f172a', border: '1px solid #3b82f6', color: '#60a5fa', fontSize: '12px', fontWeight: 'bold' }}>
-                      {p.vagas_total} vagas • R$ {Number(p.valor).toFixed(2).replace('.', ',')}
+                      {p.formato || '6x0'} • {p.vagas_total} vagas • {Number(p.valor) > 0 ? `R$ ${Number(p.valor).toFixed(2).replace('.', ',')}` : 'Gratuito'}
                     </span>
                   </div>
                 </div>
