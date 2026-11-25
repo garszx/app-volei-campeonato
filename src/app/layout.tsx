@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Placar Vôlei | Central do Torneio",
-  description: "Sistema profissional para gerenciamento e transmissão de campeonatos de voleibol.",
+  title: "VôleiHub | Patotas e Campeonatos",
+  description: "Organize listas de patotas com fila de espera, controle de Pix, placar ao vivo e campeonatos de vôlei de Quadra.",
 };
 
 export default function RootLayout({
