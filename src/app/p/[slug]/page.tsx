@@ -158,7 +158,8 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
     const espera = inscricoes.filter((i) => i.status_vaga === 'espera');
 
     const dataFmt = new Date(patota.data_hora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-    let texto = `🏐 *${patota.titulo}*\n📍 ${patota.local_nome}\n📅 ${dataFmt}\n💰 R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}\n\n`;
+    const horarioFmt = patota.hora_fim ? `${dataFmt} às ${patota.hora_fim}` : dataFmt;
+    let texto = `🏐 *${patota.titulo}*\n📍 ${patota.local_nome}\n📅 ${horarioFmt}\n💰 R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}\n\n`;
     texto += `*Confirmados (${confirmados.length}/${patota.vagas_total}):*\n`;
     confirmados.forEach((c, idx) => {
       const pago = c.status_pagamento === 'pago' ? ' ✅' : '';
@@ -210,7 +211,10 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
 
           <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', color: '#cbd5e1' }}>
             <div>📍 <strong>Local:</strong> {patota.local_nome} {patota.local_maps_url && <a href={patota.local_maps_url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa', marginLeft: '6px' }}>(Abrir no Maps)</a>}</div>
-            <div>📅 <strong>Data:</strong> {new Date(patota.data_hora).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })}</div>
+            <div>
+              📅 <strong>Data:</strong> {new Date(patota.data_hora).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })}
+              {patota.hora_fim ? ` às ${patota.hora_fim}` : ''}
+            </div>
             <div>🏐 <strong>Formato / Nível:</strong> {patota.formato || '6x6'} • {patota.nivel || 'Livre'}</div>
             <div>💰 <strong>Valor:</strong> R$ {Number(patota.valor).toFixed(2).replace('.', ',')} • <strong>Vagas:</strong> {confirmados.length}/{patota.vagas_total}</div>
           </div>

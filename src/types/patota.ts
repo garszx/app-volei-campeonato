@@ -6,6 +6,7 @@ export interface Patota {
   local_nome: string;
   local_maps_url?: string | null;
   data_hora: string;
+  hora_fim?: string | null;
   formato?: string | null;
   nivel?: string | null;
   vagas_total: number;
@@ -15,7 +16,6 @@ export interface Patota {
   pix_titular?: string | null;
   contato_nome?: string | null;
   contato_whatsapp?: string | null;
-  mostrar_whatsapp_no_link?: boolean;
   horas_trava_cancelamento?: number;
   status: 'aberta' | 'encerrada' | 'cancelada' | string;
   created_at?: string;

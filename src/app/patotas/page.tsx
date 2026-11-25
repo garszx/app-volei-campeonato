@@ -31,6 +31,7 @@ export default function PaginaPatotas() {
   const [localNome, setLocalNome] = useState('');
   const [localMapsUrl, setLocalMapsUrl] = useState('');
   const [dataHora, setDataHora] = useState('');
+  const [horaFim, setHoraFim] = useState('');
   const [formato, setFormato] = useState('6x6');
   const [nivel, setNivel] = useState('Misto / Intermediário');
   const [vagasTotal, setVagasTotal] = useState(18);
@@ -88,6 +89,7 @@ export default function PaginaPatotas() {
         local_nome: localNome.trim(),
         local_maps_url: localMapsUrl.trim() || null,
         data_hora: new Date(dataHora).toISOString(),
+        hora_fim: horaFim.trim() || null,
         formato,
         nivel,
         vagas_total: Number(vagasTotal),
@@ -201,14 +203,18 @@ export default function PaginaPatotas() {
               <input style={inputStyle} placeholder="Ex: Vôlei de Quinta - Bruno Hoeltgebaum" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Local / Ginásio *</label>
                 <input style={inputStyle} placeholder="Ex: EEB Bruno Hoeltgebaum" value={localNome} onChange={(e) => setLocalNome(e.target.value)} required />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Data e Hora *</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Data e Início *</label>
                 <input type="datetime-local" style={inputStyle} value={dataHora} onChange={(e) => setDataHora(e.target.value)} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Horário de Término</label>
+                <input type="time" style={inputStyle} value={horaFim} onChange={(e) => setHoraFim(e.target.value)} />
               </div>
             </div>
 
@@ -296,6 +302,7 @@ export default function PaginaPatotas() {
                     <h3 style={{ margin: '0 0 6px', fontSize: '18px', color: '#f8fafc' }}>{p.titulo}</h3>
                     <div style={{ fontSize: '13px', color: '#94a3b8' }}>
                       📍 {p.local_nome} • 📅 {new Date(p.data_hora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                      {p.hora_fim ? ` às ${p.hora_fim}` : ''}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
