@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../supabase';
 import styles from './setup.module.css';
@@ -146,7 +147,25 @@ export default function Setup() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Criar Novo Campeonato</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+        <h1 className={styles.title} style={{ margin: 0 }}>Criar Novo Campeonato</h1>
+        <Link
+          href="/patotas"
+          style={{
+            padding: '10px 16px',
+            backgroundColor: '#1e293b',
+            color: '#f8fafc',
+            border: '1px solid #334155',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            fontSize: '14px',
+          }}
+        >
+          🏐 Ir para Patotas
+        </Link>
+      </div>
+
       {erroMsg && (<div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '15px', borderRadius: '8px', marginBottom: '20px', textAlign: 'center', fontWeight: 'bold' }}>⚠️ {erroMsg}</div>)}
       <div className={styles.configPanel}>
         <h2 className={styles.configTitle}>Regras e Formato</h2>

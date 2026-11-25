@@ -140,26 +140,44 @@ export default function PaginaPatotas() {
             </p>
           </div>
 
-          {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
-                {user.user_metadata?.full_name || user.email}
-              </span>
-              <button
-                onClick={sair}
-                style={{ padding: '6px 12px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-              >
-                Sair
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={entrarComGoogle}
-              style={{ padding: '10px 16px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <Link
+              href="/setup"
+              style={{
+                padding: '8px 14px',
+                backgroundColor: '#1e293b',
+                color: '#f8fafc',
+                border: '1px solid #334155',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontWeight: 'bold',
+                fontSize: '13px',
+              }}
             >
-              Entrar com Google
-            </button>
-          )}
+              🏆 Setup de Campeonatos
+            </Link>
+
+            {user ? (
+              <>
+                <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+                  {user.user_metadata?.full_name || user.email}
+                </span>
+                <button
+                  onClick={sair}
+                  style={{ padding: '6px 12px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                >
+                  Sair
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={entrarComGoogle}
+                style={{ padding: '8px 16px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+              >
+                Entrar com Google
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Botão Criar Patota */}
