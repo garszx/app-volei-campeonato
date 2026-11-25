@@ -2,12 +2,14 @@
 
 import { useEffect, useState, use, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../../supabase';
 import { Patota, PatotaInscricao } from '../../../types/patota';
 
 export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
+  const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
   const [patota, setPatota] = useState<Patota | null>(null);
@@ -136,13 +138,32 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
     }
   };
 
+  const handleExcluirPatota = async () => {
+    if (!patota || !user || patota.criador_id !== user.id) return;
+    if (!confirm(`Tem certeza que deseja EXCLUIR a patota "${patota.titulo}"? Essa ação não pode ser desfeita.`)) return;
+
+    setProcessando(true);
+    const { error } = await supabase
+      .from('patotas')
+      .delete()
+      .eq('id', patota.id);
+    setProcessando(false);
+
+    if (error) {
+      alert('Erro ao excluir patota: ' + error.message);
+      return;
+    }
+
+    router.push('/patotas');
+  };
+
   const atualizarPagamento = async (inscricaoId: string, novoStatus: string) => {
     const { error } = await supabase
       .from('patota_inscricoes')
       .update({ status_pagamento: novoStatus })
       .eq('id', inscricaoId);
 
-    if (error) alert('Erro ao atualizar pagamento.');
+    if (error) alert('Erro ao atualizar pagamento: ' + error.message);
     else await carregarPatota();
   };
 
@@ -159,10 +180,12 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
 
     const dataFmt = new Date(patota.data_hora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
     const horarioFmt = patota.hora_fim ? `${dataFmt} às ${patota.hora_fim}` : dataFmt;
-    let texto = `🏐 *${patota.titulo}*\n📍 ${patota.local_nome}\n📅 ${horarioFmt}\n💰 R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}\n\n`;
+    const valorFmt = Number(patota.valor) > 0 ? `R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}` : 'Gratuito';
+
+    let texto = `🏐 *${patota.titulo}*\n📍 ${patota.local_nome}\n📅 ${horarioFmt}\n💰 ${valorFmt}\n\n`;
     texto += `*Confirmados (${confirmados.length}/${patota.vagas_total}):*\n`;
     confirmados.forEach((c, idx) => {
-      const pago = c.status_pagamento === 'pago' ? ' ✅' : '';
+      const pago = Number(patota.valor) > 0 && c.status_pagamento === 'pago' ? ' ✅' : '';
       texto += `${idx + 1}. ${c.nome_jogador}${pago}\n`;
     });
 
@@ -194,6 +217,8 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
   const confirmados = inscricoes.filter((i) => i.status_vaga === 'confirmado');
   const espera = inscricoes.filter((i) => i.status_vaga === 'espera');
   const minhaInscricao = user ? inscricoes.find((i) => i.user_id === user.id) : undefined;
+  const isCriador = Boolean(user && patota.criador_id === user.id);
+  const isPaga = Number(patota.valor) > 0;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', padding: '24px 16px' }}>
@@ -216,10 +241,10 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
               {patota.hora_fim ? ` às ${patota.hora_fim}` : ''}
             </div>
             <div>🏐 <strong>Formato / Nível:</strong> {patota.formato || '6x6'} • {patota.nivel || 'Livre'}</div>
-            <div>💰 <strong>Valor:</strong> R$ {Number(patota.valor).toFixed(2).replace('.', ',')} • <strong>Vagas:</strong> {confirmados.length}/{patota.vagas_total}</div>
+            <div>💰 <strong>Valor:</strong> {isPaga ? `R$ ${Number(patota.valor).toFixed(2).replace('.', ',')}` : 'Gratuito'} • <strong>Vagas:</strong> {confirmados.length}/{patota.vagas_total}</div>
           </div>
 
-          {patota.pix_chave && (
+          {isPaga && patota.pix_chave && (
             <div style={{ marginTop: '14px', padding: '12px', backgroundColor: '#0f172a', borderRadius: '10px', border: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ fontSize: '13px' }}>
                 <div style={{ color: '#94a3b8' }}>Pix ({patota.pix_titular || 'Organizador'}):</div>
@@ -231,10 +256,20 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
             </div>
           )}
 
-          <div style={{ marginTop: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={copiarListaWhatsApp} style={{ padding: '8px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
               📲 Copiar Lista p/ WhatsApp
             </button>
+
+            {isCriador && (
+              <button
+                onClick={handleExcluirPatota}
+                disabled={processando}
+                style={{ padding: '8px 14px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+              >
+                🗑️ Excluir Patota
+              </button>
+            )}
           </div>
         </div>
 
@@ -256,7 +291,7 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
                 </strong>
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {minhaInscricao.status_pagamento !== 'pago' && (
+                {isPaga && minhaInscricao.status_pagamento !== 'pago' && (
                   <button
                     onClick={() => atualizarPagamento(minhaInscricao.id, 'aguardando_confirmacao')}
                     disabled={minhaInscricao.status_pagamento === 'aguardando_confirmacao'}
@@ -316,19 +351,21 @@ export default function PaginaPatotaSlug({ params }: { params: Promise<{ slug: s
                     <span style={{ color: '#64748b', marginRight: '8px', fontWeight: 'bold' }}>{idx + 1}.</span>
                     <strong>{item.nome_jogador}</strong>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', color: item.status_pagamento === 'pago' ? '#34d399' : item.status_pagamento === 'aguardando_confirmacao' ? '#fbbf24' : '#94a3b8' }}>
-                      {item.status_pagamento === 'pago' ? 'Pago' : item.status_pagamento === 'aguardando_confirmacao' ? 'Aguardando' : 'Pendente'}
-                    </span>
-                    {isOrganizador && (
-                      <button
-                        onClick={() => atualizarPagamento(item.id, item.status_pagamento === 'pago' ? 'pendente' : 'pago')}
-                        style={{ padding: '4px 10px', backgroundColor: item.status_pagamento === 'pago' ? '#334155' : '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
-                      >
-                        {item.status_pagamento === 'pago' ? 'Estornar' : 'Dar Baixa'}
-                      </button>
-                    )}
-                  </div>
+                  {isPaga && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: item.status_pagamento === 'pago' ? '#34d399' : item.status_pagamento === 'aguardando_confirmacao' ? '#fbbf24' : '#94a3b8' }}>
+                        {item.status_pagamento === 'pago' ? 'Pago' : item.status_pagamento === 'aguardando_confirmacao' ? 'Aguardando' : 'Pendente'}
+                      </span>
+                      {isOrganizador && (
+                        <button
+                          onClick={() => atualizarPagamento(item.id, item.status_pagamento === 'pago' ? 'pendente' : 'pago')}
+                          style={{ padding: '4px 10px', backgroundColor: item.status_pagamento === 'pago' ? '#334155' : '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+                        >
+                          {item.status_pagamento === 'pago' ? 'Estornar' : 'Dar Baixa'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
