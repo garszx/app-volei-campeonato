@@ -97,7 +97,6 @@ export default function PaginaPatotas() {
         pix_titular: pixTitular.trim() || null,
         contato_nome: user.user_metadata?.full_name || user.email || 'Organizador',
         contato_whatsapp: contatoWhatsapp.trim() || null,
-        mostrar_whatsapp_no_link: Boolean(contatoWhatsapp.trim()),
         horas_trava_cancelamento: Number(horasTrava),
         status: 'aberta',
       })
